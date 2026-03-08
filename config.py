@@ -7,9 +7,10 @@ AUTHORISED_IDS = TELEGRAM_USERS.keys()
 BOT_TOKEN = BOT_TOKEN
 
 # File Storage
-CUSTOM_STORAGE_DIR = os.path.expanduser("~/printbotv2/files")
-PICKGUARD_STORAGE_DIR = os.path.expanduser("~/printbot2")
+CUSTOM_STORAGE_DIR = os.path.expanduser("~/printbot2/Files")
+PICKGUARD_STORAGE_DIR = os.path.expanduser("~/printbot2/Pickguards")
 os.makedirs(CUSTOM_STORAGE_DIR, exist_ok=True)
+os.makedirs(PICKGUARD_STORAGE_DIR, exist_ok=True)
 
 # OpenAI
 CHATGPT_TOKEN = CHATGPT_TOKEN
