@@ -16,22 +16,25 @@ def get_queue_data():
         queue[status] = jobs
     return queue
 
-def insert_job(file_name, position, assigned_user="Unassigned", file_path="", customer_name="Manual", errors=""):
+def insert_job(file_name, position=None, assigned_user="Unassigned", file_path="", customer_name="Manual", errors=""):
     cur = get_cursor()
     # Get position value
     jobs = cur.execute("SELECT position FROM jobs ORDER BY position ASC").fetchall()
     # If no jobs, insert with pos 1
-    if len(jobs) == 0:
-        pos = 1.0
-    # If inserting into first position, take pos of top job and subtract 1
-    elif position == 1:
-        pos = jobs[0][0] - 1
-    # If inserting into last position, take pos of bottom job and add 1
-    elif position > len(jobs):
-        pos = jobs[-1][0] + 1
-    # If inserting between jobs, take pos of next and previous jobs and average
+    if position:
+        if len(jobs) == 0:
+            pos = 1.0
+        # If inserting into first position, take pos of top job and subtract 1
+        elif position == 1:
+            pos = jobs[0][0] - 1
+        # If inserting into last position, take pos of bottom job and add 1
+        elif position > len(jobs):
+            pos = jobs[-1][0] + 1
+        # If inserting between jobs, take pos of next and previous jobs and average
+        else:
+            pos = (jobs[position-2][0] + jobs[position-1][0])/2
     else:
-        pos = (jobs[position-2][0] + jobs[position-1][0])/2
+        pos = jobs[-1][0] + 1
     
     cur.execute("INSERT INTO jobs (customer_name, file_name, file_path, assigned_user, position, errors) VALUES (?, ?, ?, ?, ?, ?)", (customer_name, file_name, file_path, assigned_user, pos, errors))
     conn.commit()

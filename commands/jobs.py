@@ -63,7 +63,7 @@ async def send_queue(context):
 async def newjob(update, context):
     
     if len(context.args) < 3:
-        await update.message.reply_text("Usage: /newjob <position> <assigned_user> '<customer_name>' <file_name>")
+        await update.message.reply_text("Usage: /newjob <position> <assigned_user> '<customer_name>' <file_name>\nTo add to end of queue, set position to 0")
         return
     
     # Ensure pos is int
@@ -87,8 +87,6 @@ async def newjob(update, context):
     # Extract customer name and file name
     customer_name = parsed_args[0]
     file_name = " ".join(parsed_args[1:])
-    print(customer_name)
-    print(file_name)
     
     # Set bot context variables for file handling
     context.user_data["position"] = pos
