@@ -12,11 +12,11 @@ def get_queue_data():
     queue = {}
     # Iterate through each status and add to queue dict by position
     for status in statuses:
-        jobs = cur.execute("SELECT id, customer_name, file_name, assigned_user, status, position FROM jobs WHERE status=? ORDER BY position ASC", (status,)).fetchall()
+        jobs = cur.execute("SELECT id, customer_name, file_name, assigned_user, status, position, file_path, errors FROM jobs WHERE status=? ORDER BY position ASC", (status,)).fetchall()
         queue[status] = jobs
     return queue
 
-def insert_job(file_name, assigned_user, position, file_path=None, customer_name="Manual"):
+def insert_job(file_name, position, assigned_user="Unassigned", file_path="", customer_name="Manual", errors=""):
     cur = get_cursor()
     # Get position value
     jobs = cur.execute("SELECT position FROM jobs ORDER BY position ASC").fetchall()
@@ -33,7 +33,7 @@ def insert_job(file_name, assigned_user, position, file_path=None, customer_name
     else:
         pos = (jobs[position-2][0] + jobs[position-1][0])/2
     
-    cur.execute("INSERT INTO jobs (customer_name, file_name, file_path, assigned_user, position VALUES (?, ?, ?, ?, ?)", (customer_name, file_name, file_path, assigned_user, pos))
+    cur.execute("INSERT INTO jobs (customer_name, file_name, file_path, assigned_user, position, errors) VALUES (?, ?, ?, ?, ?, ?)", (customer_name, file_name, file_path, assigned_user, pos, errors))
     conn.commit()
 
 def remove_job(job_id):
@@ -48,10 +48,15 @@ def update_status(job_id, status):
     
 def get_job(job_id):
     cur = get_cursor()
-    job = cur.execute("SELECT customer_name, file_name, file_path, assigned_user, status, position FROM jobs WHERE id=?", (job_id, )).fetchone()
+    job = cur.execute("SELECT customer_name, file_name, file_path, assigned_user, status, position, errors FROM jobs WHERE id=?", (job_id, )).fetchone()
     return job
 
 def update_assigned(job_id, user):
     cur = get_cursor()
     cur.execute("UPDATE jobs SET assigned_user=? WHERE id=?", (user, job_id))
+    conn.commit()
+
+def update_file_path(file_path, job_id):
+    cur = get_cursor()
+    cur.execute("UPDATE jobs SET file_path=? WHERE id=?", (file_path, job_id))
     conn.commit()
