@@ -3,6 +3,7 @@ from db import get_queue_data, insert_job, remove_job, update_status, get_job, u
 from commands.utils import send_all, delete_file
 from config import AUTHORISED_NAMES, AUTHORISED_IDS, CUSTOM_STORAGE_DIR, TELEGRAM_USERS
 import os
+import shlex
 
 
 async def start(update, context):
@@ -62,7 +63,7 @@ async def send_queue(context):
 async def newjob(update, context):
     
     if len(context.args) < 3:
-        await update.message.reply_text("Usage: /newjob <position> <assigned_user> <file_name>")
+        await update.message.reply_text("Usage: /newjob <position> <assigned_user> '<customer_name>' <file_name>")
         return
     
     # Ensure pos is int
@@ -78,12 +79,20 @@ async def newjob(update, context):
         return
     else:
         assigned_user = context.args[1].lower().capitalize()
-        
-    # Set remaining args to file name
-    file_name = " ".join(context.args[2:])
+    
+    # Extract customer name and file name from remaining args
+    args_str = " ".join(context.args[2:])
+    # Split args by by ''
+    parsed_args = shlex.split(args_str)
+    # Extract customer name and file name
+    customer_name = parsed_args[0]
+    file_name = " ".join(parsed_args[1:])
+    print(customer_name)
+    print(file_name)
     
     # Set bot context variables for file handling
     context.user_data["position"] = pos
+    context.user_data["customer_name"] = customer_name
     context.user_data["file_name"] = file_name
     context.user_data["assigned_user"] = assigned_user
     
@@ -103,7 +112,7 @@ async def handle_file(update, context):
     file = await update.message.document.get_file()
     
     # If job has valid file path (Fetched from etsy)
-    if context.user_data["file_path"]:
+    if "file_path" in context.user_data:
         # If requires customisation
         if context.user_data["file_path"] == "custom":
             # Upload to custom storage directory to be deleted later
@@ -119,16 +128,18 @@ async def handle_file(update, context):
         
     # For manually added jobs
     else:
+        customer_name = context.user_data["customer_name"]
         pos = context.user_data["position"]
         file_name = context.user_data["file_name"]
         assigned_user = context.user_data["assigned_user"]
         file_path = os.path.join(CUSTOM_STORAGE_DIR, update.message.document.file_name) # Create path using file name
         await file.download_to_drive(file_path) # Download to pi
-        insert_job(file_name, assigned_user, pos, file_path)
+        insert_job(file_name, pos, assigned_user, file_path, customer_name)
         await update.message.reply_text(f"✅ Added Job {file_name} at position {pos}.")
         del context.user_data["position"]
         del context.user_data["file_name"]
         del context.user_data["assigned_user"]
+        del context.user_data["customer_name"]
 
 
     await send_queue(context)
