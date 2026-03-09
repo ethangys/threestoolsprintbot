@@ -1,5 +1,5 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
-from db import get_queue_data, insert_job, remove_job, update_status, get_job, update_assigned, update_file_path
+from db import get_queue_data, insert_job, remove_job, update_status, get_job, update_assigned, update_file_path, check_existing_file_path
 from commands.utils import send_all, delete_file
 from config import AUTHORISED_NAMES, AUTHORISED_IDS, CUSTOM_STORAGE_DIR, TELEGRAM_USERS
 import os
@@ -7,7 +7,7 @@ import shlex
 
 
 async def start(update, context):
-    keyboard = [["/newjob", "/queue", "/remove"]]
+    keyboard = [["/newjob", "/queue"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("👋 Welcome! Choose a command below or type a command manually:", reply_markup=reply_markup)
 
@@ -62,7 +62,7 @@ async def send_queue(context):
 
 async def newjob(update, context):
     
-    if len(context.args) < 3:
+    if len(context.args) < 2:
         await update.message.reply_text("Usage: /newjob <position> <assigned_user> '<customer_name>' <file_name>\nTo add to end of queue, set position to 0")
         return
     
@@ -88,6 +88,8 @@ async def newjob(update, context):
     customer_name = parsed_args[0]
     file_name = " ".join(parsed_args[1:])
     
+    if customer_name == '':
+        customer_name = "Manual"
     # Set bot context variables for file handling
     context.user_data["position"] = pos
     context.user_data["customer_name"] = customer_name
@@ -141,29 +143,6 @@ async def handle_file(update, context):
 
 
     await send_queue(context)
-    
-async def remove(update, context):
-    if len(context.args) < 1:
-        await update.message.reply_text("Usage: /remove <ID>")
-        return
-    
-    try:
-        job_id = int(context.args[0])
-    except ValueError:
-        await update.message.reply_text("❌ ID must be a number.")
-    
-    job_path = get_job(job_id)[2]
-    
-    if os.path.dirname(job_path) == CUSTOM_STORAGE_DIR:
-        if job_path and os.path.exists(job_path):
-            try:
-                os.remove(job_path)
-            except Exception as e:
-                print(f"⚠️ Could not delete file {job_path}: {e}")
-    
-    remove_job(job_id)
-    
-    await send_all(context, f"❌ Job ID {job_id} has been cancelled")
 
 async def button_callback(update, context):
     
@@ -185,8 +164,8 @@ async def button_callback(update, context):
     elif data.startswith("remove_"):
         job_id = int(data.split("_")[1])
         job_path = get_job(job_id)[2]
-        
-        delete_file(job_path)
+        if not check_existing_file_path(job_path):
+            delete_file(job_path)
         remove_job(job_id)
         
         await send_all(context, f"❌ Job ID {job_id} has been cancelled")
@@ -233,8 +212,9 @@ async def button_callback(update, context):
     elif data.startswith("dispatched_"):
         job_id = data.split("_")[1]
         customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(job_id)
-        # Only delete if it is located in custom directory
-        delete_file(file_path)
+        # Only delete if it is located in custom directory and not being used by another job
+        if not check_existing_file_path(file_path):
+            delete_file(file_path)
         
         await send_all(context, message=f"Job: {customer_name} - {file_name} [{assigned_user}]: {status} (ID: {job_id}) has been dispatched 📦")
         
@@ -257,8 +237,6 @@ async def button_callback(update, context):
         else:
             context.user_data["file_path"] = "custom"
             context.user_data["job_id"] = job_id
-
-            
         
     else:
         job_id = data.split("_")[1]

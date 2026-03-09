@@ -63,3 +63,10 @@ def update_file_path(file_path, job_id):
     cur = get_cursor()
     cur.execute("UPDATE jobs SET file_path=? WHERE id=?", (file_path, job_id))
     conn.commit()
+    
+def check_existing_file_path(file_path):
+    cur = get_cursor()
+    jobs_count = cur.execute("SELECT COUNT(*) FROM jobs WHERE file_path=?", (file_path,)).fetchone()[0]
+    if int(jobs_count) > 0:
+        return True
+    return False
