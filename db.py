@@ -32,7 +32,7 @@ def insert_job(file_name, position=None, assigned_user="Unassigned", file_path="
             pos = jobs[-1][0] + 1
         # If inserting between jobs, take pos of next and previous jobs and average
         else:
-            pos = (jobs[position-2][0] + jobs[position-1][0])/2
+            pos = (jobs[position-1][0] + jobs[position][0])/2
     else:
         pos = jobs[-1][0] + 1
     

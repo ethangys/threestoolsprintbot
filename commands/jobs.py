@@ -11,47 +11,62 @@ async def start(update, context):
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("👋 Welcome! Choose a command below or type a command manually:", reply_markup=reply_markup)
 
-def build_queue_message():
+def build_queue_message(context):
     all_jobs = get_queue_data().items()
-
-    if all(len(jobs) == 0 for _, jobs in all_jobs):
-        return "📭 No pending jobs.", None
-
+    
+    user = context.user_data.get("user", "").capitalize()
+    
+    has_jobs = False
+    
     buttons = []
     text = "📋 Print Queue:\n\n"
     i = 1
 
     for status_name, jobs in all_jobs:
+        
+        if user:
+            jobs = [job for job in jobs if job[3] == user]
+        if not jobs:
+            continue
+        has_jobs = True
 
         if status_name == "Received":
-            header = "📥 Received\n"
+            text += "📥 Received\n"
         elif status_name == "Printing":
-            header = "🖨️ Printing\n"
+            text += "🖨️ Printing\n"
         else:
-            header = "✅ Printed\n"
-
-        text += header
+            text += "✅ Printed\n"
 
         for job in jobs:
             id, customer_name, file_name, assigned_user, status, position, file_path, errors = job
-
-            text += f"{i}. {customer_name} - {file_name} [{assigned_user}]: {status} (ID: {id})\n"
+             
+            text += f"{i}. {customer_name} - {file_name} [{assigned_user}]: {status}\n"
 
             buttons.append([
-                InlineKeyboardButton(f"📂 #{i}", callback_data=f"get_{id}"),
-                InlineKeyboardButton(f"📊 #{i}", callback_data=f"status_{id}"),
-                InlineKeyboardButton(f"❌ #{i}", callback_data = f"remove_{id}")
+                InlineKeyboardButton(f"📂 #{i}", callback_data=f"get_{id}_{i}"),
+                InlineKeyboardButton(f"📊 #{i}", callback_data=f"status_{id}_{i}"),
+                InlineKeyboardButton(f"❌ #{i}", callback_data = f"remove_{id}_{i}")
             ])
             i += 1
 
         text += "\n"
+    if not has_jobs:
+        return "📭 No pending jobs.", None
+
 
     reply_markup = InlineKeyboardMarkup(buttons)
 
     return text, reply_markup
 
 async def queue(update, context):
-    text, reply_markup = build_queue_message()
+    if len(context.args) == 1:
+        if context.args[0].upper() in (list(AUTHORISED_NAMES) + ["MANUAL"]):
+            context.user_data["user"] = context.args[0]
+        else:
+            await update.message.reply_text("User not authorised")
+    text, reply_markup = build_queue_message(context)
+    if len(context.args) == 1:
+        del context.user_data["user"]
     await update.message.reply_text(text, reply_markup=reply_markup)
     
 async def send_queue(context):
@@ -135,7 +150,7 @@ async def handle_file(update, context):
         file_path = os.path.join(CUSTOM_STORAGE_DIR, update.message.document.file_name) # Create path using file name
         await file.download_to_drive(file_path) # Download to pi
         insert_job(file_name, pos, assigned_user, file_path, customer_name)
-        await update.message.reply_text(f"✅ Added Job {file_name} at position {pos}.")
+        await update.message.reply_text(f"✅ Added Job: {file_name} at {f'position {pos}' if pos != 0 else 'end of queue'}.")
         del context.user_data["position"]
         del context.user_data["file_name"]
         del context.user_data["assigned_user"]
@@ -163,60 +178,65 @@ async def button_callback(update, context):
     # Remove button handler
     elif data.startswith("remove_"):
         job_id = int(data.split("_")[1])
+        job_pos = int(data.split("_"[2]))
         job_path = get_job(job_id)[2]
         if not check_existing_file_path(job_path):
             delete_file(job_path)
         remove_job(job_id)
         
-        await send_all(context, f"❌ Job ID {job_id} has been cancelled")
+        await send_all(context, f"❌ Job #{job_pos} has been cancelled")
         await send_queue(context)
     
     # Status button handler
     elif data.startswith("status_"):
         job_id = data.split("_")[1]
+        job_pos = data.split("_")[2]
         customer_name, file_name, file_path, assigned_user, status, pos, errors = get_job(job_id)
         
         status_buttons = [
             [
-                InlineKeyboardButton("🖨 Printing", callback_data=f"printing_{job_id}"),
-                InlineKeyboardButton("✅ Printed", callback_data=f"printed_{job_id}")
+                InlineKeyboardButton("🖨 Printing", callback_data=f"printing_{job_id}_{job_pos}"),
+                InlineKeyboardButton("✅ Printed", callback_data=f"printed_{job_id}_{job_pos}")
             ],
             [
-                InlineKeyboardButton("📦 Dispatched", callback_data=f"dispatched_{job_id}"),
-                InlineKeyboardButton("🖐️ Claim", callback_data=f"claim_{job_id}")
+                InlineKeyboardButton("📦 Dispatched", callback_data=f"dispatched_{job_id}_{job_pos}"),
+                InlineKeyboardButton("🖐️ Claim", callback_data=f"claim_{job_id}_{job_pos}")
             ]
         ]
         
         # Upload button if file does not exist
         if not os.path.exists(get_job(job_id)[2]):
-            status_buttons.append([InlineKeyboardButton("⬆️ Upload", callback_data=f"upload_{job_id}")])
+            status_buttons.append([InlineKeyboardButton("⬆️ Upload", callback_data=f"upload_{job_id}_{job_pos}")])
         
         # New inline buttons for individual statuses
         keyboard = InlineKeyboardMarkup(status_buttons)
         
         # Send new message for modifying status
-        await query.message.reply_text(f"Job: {customer_name} - {file_name} [{assigned_user}]: {status} (ID: {job_id})", reply_markup=keyboard)
+        await query.message.reply_text(f"Job #{job_pos}: {customer_name} - {file_name} [{assigned_user}]: {status}", reply_markup=keyboard)
         await query.answer()
     
     # Printing/Printed button handlers
     elif data.startswith(("printing_", "printed_")):
+        new_status = data.split("_")[0]
         job_id = data.split("_")[1]
+        job_pos = data.split("_")[2]
         customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(job_id)
-        update_status(job_id, status.capitalize())
+        update_status(job_id, new_status.capitalize())
         
-        await send_all(context, message=f"Job #{pos} status set to {status.capitalize()} ✅")
+        await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} [{assigned_user}] status set to {new_status.capitalize()} ✅")
         
         await send_queue(context)
     
     # Dispatch button handler
     elif data.startswith("dispatched_"):
         job_id = data.split("_")[1]
+        job_pos = data.split("_")[2]
         customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(job_id)
         # Only delete if it is located in custom directory and not being used by another job
         if not check_existing_file_path(file_path):
             delete_file(file_path)
         
-        await send_all(context, message=f"Job: {customer_name} - {file_name} [{assigned_user}]: {status} (ID: {job_id}) has been dispatched 📦")
+        await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} [{assigned_user}] has been dispatched 📦")
         
         remove_job(job_id)
         
@@ -226,11 +246,12 @@ async def button_callback(update, context):
     elif data.startswith("upload_"):
         
         job_id = data.split("_")[1]
+        job_pos = data.split("_")[2]
         job = get_job(job_id)
         file_path = job[2]
         errors = job[6]
         
-        await query.message.reply_text(f"📎 Send me the file for job with ID {job_id}")
+        await query.message.reply_text(f"📎 Send me the file for Job #{job_pos}")
         await query.answer()
         if not errors:
             context.user_data["file_path"] = file_path
@@ -240,8 +261,9 @@ async def button_callback(update, context):
         
     else:
         job_id = data.split("_")[1]
+        job_pos = data.split("_")[2]
         assigned_user = TELEGRAM_USERS.get(update.callback_query.from_user.id)
-        await query.message.reply_text(f"You have claimed job with ID: {job_id}")
+        await query.message.reply_text(f"You have claimed Job #{job_pos}")
         await query.answer()
         update_assigned(job_id, assigned_user.capitalize())
         

@@ -1,4 +1,3 @@
-# main.py
 from telegram.ext import Application, CommandHandler, MessageHandler, CallbackQueryHandler, filters
 from config import BOT_TOKEN, AUTHORISED_IDS
 from commands.jobs import start, newjob, queue, button_callback, handle_file
