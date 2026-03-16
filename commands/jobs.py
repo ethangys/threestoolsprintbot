@@ -70,7 +70,7 @@ async def queue(update, context):
     await update.message.reply_text(text, reply_markup=reply_markup)
     
 async def send_queue(context):
-    text, reply_markup = build_queue_message()
+    text, reply_markup = build_queue_message(context)
     
     for user_id in AUTHORISED_IDS:
         await context.bot.send_message(chat_id=user_id, text=text, reply_markup=reply_markup)
@@ -123,8 +123,12 @@ async def handle_file(update, context):
         await update.message.reply_text("⚠️ Please use /newjob <position> <assigned_to> <name> first before sending a file or trigger through upload button in /queue -> 📊")
         return
     
+    document = update.message.document
+    text = update.message.text
+    
     # Get file object
-    file = await update.message.document.get_file()
+    if document:
+        file = await document.get_file()
     
     # If job has valid file path (Fetched from etsy)
     if "file_path" in context.user_data:
@@ -134,7 +138,7 @@ async def handle_file(update, context):
             file_path = os.path.join(CUSTOM_STORAGE_DIR, update.message.document.file_name)
             await file.download_to_drive(file_path)
             update_file_path(file_path, context.user_data["job_id"])
-            del context.user_data["job"]
+            del context.user_data["job_id"]
         else:
             # Upload to pickguard storage directory to be preserved for future downloads
             file_path = context.user_data["file_path"]
@@ -147,8 +151,11 @@ async def handle_file(update, context):
         pos = context.user_data["position"]
         file_name = context.user_data["file_name"]
         assigned_user = context.user_data["assigned_user"]
-        file_path = os.path.join(CUSTOM_STORAGE_DIR, update.message.document.file_name) # Create path using file name
-        await file.download_to_drive(file_path) # Download to pi
+        if document:
+            file_path = os.path.join(CUSTOM_STORAGE_DIR, update.message.document.file_name) # Create path using file name
+            await file.download_to_drive(file_path) # Download to pi
+        elif text:
+            file_path = ""
         insert_job(file_name, pos, assigned_user, file_path, customer_name)
         await update.message.reply_text(f"✅ Added Job: {file_name} at {f'position {pos}' if pos != 0 else 'end of queue'}.")
         del context.user_data["position"]
@@ -178,7 +185,7 @@ async def button_callback(update, context):
     # Remove button handler
     elif data.startswith("remove_"):
         job_id = int(data.split("_")[1])
-        job_pos = int(data.split("_"[2]))
+        job_pos = int(data.split("_")[2])
         job_path = get_job(job_id)[2]
         if not check_existing_file_path(job_path):
             delete_file(job_path)
