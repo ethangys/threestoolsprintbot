@@ -12,7 +12,7 @@ async def start(update, context):
     await update.message.reply_text("👋 Welcome! Choose a command below or type a command manually:", reply_markup=reply_markup)
 
 def build_queue_message(context):
-    all_jobs = get_queue_data().items()
+    all_jobs = get_queue_data()
     
     user = context.user_data.get("user", "").capitalize()
     
@@ -21,6 +21,11 @@ def build_queue_message(context):
     buttons = []
     text = "📋 Print Queue:\n\n"
     i = 1
+    
+    if user:
+        all_jobs.pop("Printed", None)
+    
+    all_jobs = all_jobs.items()
 
     for status_name, jobs in all_jobs:
         
