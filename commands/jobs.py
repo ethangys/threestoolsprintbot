@@ -11,30 +11,17 @@ async def start(update, context):
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("👋 Welcome! Choose a command below or type a command manually:", reply_markup=reply_markup)
 
-def build_queue_message(context):
-    all_jobs = get_queue_data()
-    
-    user = context.user_data.get("user", "").capitalize()
-    
-    has_jobs = False
+def format_queue(items):
     
     buttons = []
-    text = "📋 Print Queue:\n\n"
+    text = "📋 Queue:\n\n"
     i = 1
     
-    if user:
-        all_jobs.pop("Printed", None)
+    if not any(jobs for _, jobs in items):
+        return "📭 No pending jobs.", None
     
-    all_jobs = all_jobs.items()
-
-    for status_name, jobs in all_jobs:
+    for status_name, jobs in items:
         
-        if user:
-            jobs = [job for job in jobs if job[3] == user]
-        if not jobs:
-            continue
-        has_jobs = True
-
         if status_name == "Received":
             text += "📥 Received\n"
         elif status_name == "Printing":
@@ -55,31 +42,61 @@ def build_queue_message(context):
             i += 1
 
         text += "\n"
-    if not has_jobs:
-        return "📭 No pending jobs.", None
-
-
+    
     reply_markup = InlineKeyboardMarkup(buttons)
+    
+    return text, reply_markup
 
+
+def build_queue_message():
+    all_jobs = get_queue_data().items()
+        
+    text, reply_markup = format_queue(all_jobs)
     return text, reply_markup
 
 async def queue(update, context):
-    if len(context.args) == 1:
-        if context.args[0].upper() in (list(AUTHORISED_NAMES) + ["MANUAL"]):
-            context.user_data["user"] = context.args[0]
-        else:
-            await update.message.reply_text("User not authorised")
-    text, reply_markup = build_queue_message(context)
-    if len(context.args) == 1:
-        del context.user_data["user"]
+    text, reply_markup = build_queue_message()
     await update.message.reply_text(text, reply_markup=reply_markup)
     
 async def send_queue(context):
-    text, reply_markup = build_queue_message(context)
+    text, reply_markup = build_queue_message()
     
     for user_id in AUTHORISED_IDS:
         await context.bot.send_message(chat_id=user_id, text=text, reply_markup=reply_markup)
 
+async def prints(update, context):
+    all_jobs = get_queue_data()
+    all_jobs.pop("Printed")
+    all_jobs = all_jobs.items()
+    text, reply_markup = format_queue(all_jobs)
+    await update.message.reply_text(text, reply_markup=reply_markup)
+
+async def jobs(update, context):
+    all_jobs = get_queue_data().get("Printed", "")
+    
+    buttons = []
+    text = "📦 To Ship:\n\n"
+    i = 1
+    
+    if not all_jobs:
+        return "📭 No pending jobs.", None
+    
+    for job in all_jobs:
+        id, customer_name, file_name, assigned_user, status, position, file_path, errors = job
+             
+        text += f"{i}. {customer_name} - {file_name}\n"
+
+        buttons.append([
+            InlineKeyboardButton(f"📦 #{i}", callback_data=f"dispatched_{id}_{i}"),
+            InlineKeyboardButton(f"❌ #{i}", callback_data = f"remove_{id}_{i}")
+        ])
+        i += 1
+    
+    reply_markup = InlineKeyboardMarkup(buttons)
+    
+    await update.message.reply_text(text, reply_markup=reply_markup)
+    
+    
 async def newjob(update, context):
     
     if len(context.args) < 2:
