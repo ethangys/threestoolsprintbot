@@ -7,20 +7,20 @@ import shlex
 
 
 async def start(update, context):
-    keyboard = [["/newjob", "/queue"]]
+    keyboard = [["/newjob", "/queue"], ["/prints", "/jobs"]]
     reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True)
     await update.message.reply_text("👋 Welcome! Choose a command below or type a command manually:", reply_markup=reply_markup)
 
-def format_queue(items):
+def format_queue(all_jobs):
     
     buttons = []
     text = "📋 Queue:\n\n"
     i = 1
     
-    if not any(jobs for _, jobs in items):
+    if not any(jobs for _, jobs in all_jobs):
         return "📭 No pending jobs.", None
     
-    for status_name, jobs in items:
+    for status_name, jobs in all_jobs:
         
         if status_name == "Received":
             text += "📥 Received\n"
@@ -50,28 +50,46 @@ def format_queue(items):
 
 def build_queue_message():
     all_jobs = get_queue_data().items()
-        
-    text, reply_markup = format_queue(all_jobs)
-    return text, reply_markup
+    return format_queue(all_jobs)
 
 async def queue(update, context):
     text, reply_markup = build_queue_message()
     await update.message.reply_text(text, reply_markup=reply_markup)
     
-async def send_queue(context):
-    text, reply_markup = build_queue_message()
-    
-    for user_id in AUTHORISED_IDS:
-        await context.bot.send_message(chat_id=user_id, text=text, reply_markup=reply_markup)
-
-async def prints(update, context):
+def format_prints(assigned_user=None):
     all_jobs = get_queue_data()
     all_jobs.pop("Printed")
-    all_jobs = all_jobs.items()
-    text, reply_markup = format_queue(all_jobs)
+    if assigned_user:
+        filtered = {}
+        for status, jobs in all_jobs.items():
+            filtered_jobs = [job for job in jobs if job[3] == assigned_user]
+            if filtered_jobs:
+                filtered[status] = filtered_jobs
+        all_jobs = filtered
+
+    return format_queue(all_jobs.items())
+
+async def prints(update, context):
+    assigned_user = None
+    
+    if len(context.args) > 1:
+        await update.message.reply_text("Usage: /queue or /queue <name>")
+        return
+    if len(context.args) == 1:
+        if context.args[0].upper() not in AUTHORISED_NAMES:
+            await update.message.reply_text("❌ Assigned user not in database")
+            return
+        else:
+            assigned_user = context.args[0].lower().capitalize()
+    
+
+    text, reply_markup = format_prints(assigned_user)
     await update.message.reply_text(text, reply_markup=reply_markup)
 
-async def jobs(update, context):
+async def send_prints(context):
+    await send_all(context, *format_prints())
+
+def format_jobs():
     all_jobs = get_queue_data().get("Printed", "")
     
     buttons = []
@@ -87,15 +105,20 @@ async def jobs(update, context):
         text += f"{i}. {customer_name} - {file_name}\n"
 
         buttons.append([
-            InlineKeyboardButton(f"📦 #{i}", callback_data=f"dispatched_{id}_{i}"),
-            InlineKeyboardButton(f"❌ #{i}", callback_data = f"remove_{id}_{i}")
+            InlineKeyboardButton(f"📦 Dispatch #{i}", callback_data=f"dispatched_{id}_{i}"),
+            InlineKeyboardButton(f"❌ Cancel #{i}", callback_data = f"remove_{id}_{i}")
         ])
         i += 1
     
     reply_markup = InlineKeyboardMarkup(buttons)
-    
+    return text, reply_markup
+
+async def jobs(update, context):
+    text, reply_markup = format_jobs()
     await update.message.reply_text(text, reply_markup=reply_markup)
     
+async def send_jobs(context):
+    await send_all(context, *format_jobs())
     
 async def newjob(update, context):
     
@@ -179,14 +202,14 @@ async def handle_file(update, context):
         elif text:
             file_path = ""
         insert_job(file_name, pos, assigned_user, file_path, customer_name)
-        await update.message.reply_text(f"✅ Added Job: {file_name} at {f'position {pos}' if pos != 0 else 'end of queue'}.")
+        await send_all(context, f"✅ Added Job: {file_name} at {f'position {pos}' if pos != 0 else 'end of queue'}.")
         del context.user_data["position"]
         del context.user_data["file_name"]
         del context.user_data["assigned_user"]
         del context.user_data["customer_name"]
 
 
-    await send_queue(context)
+    await send_prints(context)
 
 async def button_callback(update, context):
     
@@ -214,7 +237,8 @@ async def button_callback(update, context):
         remove_job(job_id)
         
         await send_all(context, f"❌ Job #{job_pos} has been cancelled")
-        await send_queue(context)
+        
+        await send_prints(context)
     
     # Status button handler
     elif data.startswith("status_"):
@@ -254,7 +278,7 @@ async def button_callback(update, context):
         
         await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} [{assigned_user}] status set to {new_status.capitalize()} ✅")
         
-        await send_queue(context)
+        await send_prints(context)
     
     # Dispatch button handler
     elif data.startswith("dispatched_"):
@@ -269,7 +293,7 @@ async def button_callback(update, context):
         
         remove_job(job_id)
         
-        await send_queue(context)
+        await send_jobs(context)
         
     # Upload button handler
     elif data.startswith("upload_"):
@@ -296,4 +320,4 @@ async def button_callback(update, context):
         await query.answer()
         update_assigned(job_id, assigned_user.capitalize())
         
-        await send_queue(context)
+        await send_prints(context)

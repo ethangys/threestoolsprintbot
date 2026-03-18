@@ -3,10 +3,10 @@ from db import remove_job
 import os
 import asyncio
 
-async def send_all(context, message):
+async def send_all(context, message, reply_markup=None):
     for user_id in AUTHORISED_IDS:
         try:
-            await context.bot.send_message(chat_id=user_id, text=message)
+            await context.bot.send_message(chat_id=user_id, text=message, reply_markup=reply_markup)
         except Exception as e:
             print(f"⚠️ Could not send message to {user_id}: {e}")
             
