@@ -232,10 +232,11 @@ async def button_callback(update, context):
         job_id = int(data.split("_")[1])
         job_pos = int(data.split("_")[2])
         job_path = get_job(job_id)[2]
-        if not check_existing_file_path(job_path):
-            delete_file(job_path)
         remove_job(job_id)
         
+        if not check_existing_file_path(job_path):
+            delete_file(job_path)
+            
         await send_all(context, f"❌ Job #{job_pos} has been cancelled")
         
         await send_prints(context)
@@ -269,15 +270,25 @@ async def button_callback(update, context):
         await query.answer()
     
     # Printing/Printed button handlers
-    elif data.startswith(("printing_", "printed_")):
-        new_status = data.split("_")[0]
+    elif data.startswith("printing_"):
         job_id = data.split("_")[1]
         job_pos = data.split("_")[2]
         customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(job_id)
-        update_status(job_id, new_status.capitalize())
+        update_status(job_id, "Printing")
         
-        await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} [{assigned_user}] status set to {new_status.capitalize()} ✅")
+        await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} [{assigned_user}] status set to Printing ✅")
         
+        await send_prints(context)
+        
+    elif data.startswith("printed_"):
+        job_id = data.split("_")[1]
+        job_pos = data.split("_")[2]
+        customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(job_id)
+        
+        update_status(job_id, "Printed")
+        
+        await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} status set to Printed ✅")
+
         await send_prints(context)
     
     # Dispatch button handler
@@ -285,13 +296,13 @@ async def button_callback(update, context):
         job_id = data.split("_")[1]
         job_pos = data.split("_")[2]
         customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(job_id)
+        remove_job(job_id)
         # Only delete if it is located in custom directory and not being used by another job
         if not check_existing_file_path(file_path):
             delete_file(file_path)
         
-        await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} [{assigned_user}] has been dispatched 📦")
+        await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} has been dispatched 📦")
         
-        remove_job(job_id)
         
         await send_jobs(context)
         
