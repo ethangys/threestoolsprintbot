@@ -80,14 +80,11 @@ async def prints(update, context):
             await update.message.reply_text("❌ Assigned user not in database")
             return
         else:
-            assigned_user = context.args[0].lower().capitalize()
+            assigned_user = context.args[0].capitalize()
     
 
     text, reply_markup = format_prints(assigned_user)
     await update.message.reply_text(text, reply_markup=reply_markup)
-
-async def send_prints(context):
-    await send_all(context, *format_prints())
 
 def format_jobs():
     all_jobs = get_queue_data().get("Printed", "")
@@ -102,7 +99,7 @@ def format_jobs():
     for job in all_jobs:
         id, customer_name, file_name, assigned_user, status, position, file_path, errors = job
              
-        text += f"{i}. {customer_name} - {file_name}\n"
+        text += f"{i}. {customer_name} - {file_name} [{assigned_user}]\n"
 
         buttons.append([
             InlineKeyboardButton(f"📦 Dispatch #{i}", callback_data=f"dispatched_{id}_{i}"),
@@ -116,9 +113,6 @@ def format_jobs():
 async def jobs(update, context):
     text, reply_markup = format_jobs()
     await update.message.reply_text(text, reply_markup=reply_markup)
-    
-async def send_jobs(context):
-    await send_all(context, *format_jobs())
     
 async def newjob(update, context):
     
@@ -208,10 +202,10 @@ async def handle_file(update, context):
         del context.user_data["assigned_user"]
         del context.user_data["customer_name"]
 
-
-    await send_prints(context)
-
 async def button_callback(update, context):
+    
+    user_id = update.effective_user.id
+    user_name = TELEGRAM_USERS.get(user_id).capitalize()
     
     # Fetch data from pressed button
     query = update.callback_query
@@ -238,8 +232,6 @@ async def button_callback(update, context):
             delete_file(job_path)
             
         await send_all(context, f"❌ Job #{job_pos} has been cancelled")
-        
-        await send_prints(context)
     
     # Status button handler
     elif data.startswith("status_"):
@@ -278,7 +270,8 @@ async def button_callback(update, context):
         
         await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} [{assigned_user}] status set to Printing ✅")
         
-        await send_prints(context)
+        text, reply_markup = format_prints(user_name)
+        await query.message.reply_text(text, reply_markup=reply_markup)
         
     elif data.startswith("printed_"):
         job_id = data.split("_")[1]
@@ -288,8 +281,9 @@ async def button_callback(update, context):
         update_status(job_id, "Printed")
         
         await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} status set to Printed ✅")
-
-        await send_prints(context)
+        
+        text, reply_markup = format_prints(user_name)
+        await query.message.reply_text(text, reply_markup=reply_markup)
     
     # Dispatch button handler
     elif data.startswith("dispatched_"):
@@ -303,8 +297,8 @@ async def button_callback(update, context):
         
         await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} has been dispatched 📦")
         
-        
-        await send_jobs(context)
+        text, reply_markup = format_jobs()
+        await query.message.reply_text(text, reply_markup=reply_markup)
         
     # Upload button handler
     elif data.startswith("upload_"):
@@ -317,7 +311,7 @@ async def button_callback(update, context):
         
         await query.message.reply_text(f"📎 Send me the file for Job #{job_pos}")
         await query.answer()
-        if not errors:
+        if file_path:
             context.user_data["file_path"] = file_path
         else:
             context.user_data["file_path"] = "custom"
@@ -326,9 +320,6 @@ async def button_callback(update, context):
     else:
         job_id = data.split("_")[1]
         job_pos = data.split("_")[2]
-        assigned_user = TELEGRAM_USERS.get(update.callback_query.from_user.id)
-        await query.message.reply_text(f"You have claimed Job #{job_pos}")
-        await query.answer()
-        update_assigned(job_id, assigned_user.capitalize())
+        update_assigned(job_id, user_name)
         
-        await send_prints(context)
+        await send_all(context, f"Job #{job_pos} has been claimed by {user_name}")
