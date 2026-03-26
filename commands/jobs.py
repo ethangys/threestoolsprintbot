@@ -32,7 +32,7 @@ def format_queue(all_jobs):
         for job in jobs:
             id, customer_name, file_name, assigned_user, status, position, file_path, errors = job
              
-            text += f"{i}. {customer_name} - {file_name} [{assigned_user}]: {status}\n"
+            text += f"{i}. {customer_name} - {file_name} [{assigned_user}]: {status} {'(NO FILE)' if not file_path else ''}\n"
 
             buttons.append([
                 InlineKeyboardButton(f"📂 #{i}", callback_data=f"get_{id}_{i}"),
@@ -96,7 +96,7 @@ def format_jobs():
     if not all_jobs:
         return "📭 No pending jobs.", None
     
-    for job in all_jobs:
+    for job in all_jobs:    
         id, customer_name, file_name, assigned_user, status, position, file_path, errors = job
              
         text += f"{i}. {customer_name} - {file_name} [{assigned_user}]\n"
@@ -171,6 +171,7 @@ async def handle_file(update, context):
     
     # If job has valid file path (Fetched from etsy)
     if "file_path" in context.user_data:
+        customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(context.user_data["job_id"])
         # If requires customisation
         if context.user_data["file_path"] == "custom":
             # Upload to custom storage directory to be deleted later
@@ -183,6 +184,7 @@ async def handle_file(update, context):
             file_path = context.user_data["file_path"]
             await file.download_to_drive(file_path)
         del context.user_data["file_path"]
+        await send_all(context, f"✅ File uploaded for {customer_name} - {file_name}")
         
     # For manually added jobs
     else:
@@ -225,13 +227,13 @@ async def button_callback(update, context):
     elif data.startswith("remove_"):
         job_id = int(data.split("_")[1])
         job_pos = int(data.split("_")[2])
-        job_path = get_job(job_id)[2]
+        customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(job_id)
         remove_job(job_id)
         
-        if not check_existing_file_path(job_path):
-            delete_file(job_path)
+        if not check_existing_file_path(file_path):
+            delete_file(file_path)
             
-        await send_all(context, f"❌ Job #{job_pos} has been cancelled")
+        await send_all(context, f"❌ {customer_name} - {file_name} has been cancelled")
     
     # Status button handler
     elif data.startswith("status_"):
@@ -258,7 +260,7 @@ async def button_callback(update, context):
         keyboard = InlineKeyboardMarkup(status_buttons)
         
         # Send new message for modifying status
-        await query.message.reply_text(f"Job #{job_pos}: {customer_name} - {file_name} [{assigned_user}]: {status}", reply_markup=keyboard)
+        await query.message.reply_text(f"{customer_name} - {file_name} [{assigned_user}]: {status}", reply_markup=keyboard)
         await query.answer()
     
     # Printing/Printed button handlers
@@ -268,7 +270,7 @@ async def button_callback(update, context):
         customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(job_id)
         update_status(job_id, "Printing")
         
-        await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} [{assigned_user}] status set to Printing ✅")
+        await send_all(context, message=f"{customer_name} - {file_name} [{assigned_user}] status set to Printing ✅")
         
         text, reply_markup = format_prints(user_name)
         await query.message.reply_text(text, reply_markup=reply_markup)
@@ -280,7 +282,7 @@ async def button_callback(update, context):
         
         update_status(job_id, "Printed")
         
-        await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} status set to Printed ✅")
+        await send_all(context, message=f"{customer_name} - {file_name} status set to Printed ✅")
         
         text, reply_markup = format_prints(user_name)
         await query.message.reply_text(text, reply_markup=reply_markup)
@@ -295,7 +297,7 @@ async def button_callback(update, context):
         if not check_existing_file_path(file_path):
             delete_file(file_path)
         
-        await send_all(context, message=f"Job #{job_pos}: {customer_name} - {file_name} has been dispatched 📦")
+        await send_all(context, message=f"{customer_name} - {file_name} has been dispatched 📦")
         
         text, reply_markup = format_jobs()
         await query.message.reply_text(text, reply_markup=reply_markup)
@@ -305,11 +307,9 @@ async def button_callback(update, context):
         
         job_id = data.split("_")[1]
         job_pos = data.split("_")[2]
-        job = get_job(job_id)
-        file_path = job[2]
-        errors = job[6]
+        customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(job_id)
         
-        await query.message.reply_text(f"📎 Send me the file for Job #{job_pos}")
+        await query.message.reply_text(f"📎 Send me the file for {customer_name} - {file_name}")
         await query.answer()
         if file_path:
             context.user_data["file_path"] = file_path
@@ -320,6 +320,7 @@ async def button_callback(update, context):
     else:
         job_id = data.split("_")[1]
         job_pos = data.split("_")[2]
+        customer_name, file_name, file_path, assigned_user, status, position, errors = get_job(job_id)
         update_assigned(job_id, user_name)
         
-        await send_all(context, f"Job #{job_pos} has been claimed by {user_name}")
+        await send_all(context, f"{customer_name} - {file_name} has been claimed by {user_name}")
