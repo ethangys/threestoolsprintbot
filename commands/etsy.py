@@ -1,18 +1,26 @@
 from config import PICKGUARD_STORAGE_DIR
-from order_management import DESIGNS, ALIASES
+from order_management import DESIGNS
 import os
-from commands.jobs import insert_job
+from commands.utils import gpt_request
+import json
 
 def check_knobs(order_data):
     
-    additional_requests = order_data["additional_requests"]
+    customisations = order_data["customisations"]
+    other_requests = order_data["other_requests"]
     colour = order_data["colour"]
-    quantity = order_data["quantity"]
-    file_name = f"Knobs & Switches, {colour}, {quantity}"
-    if additional_requests:
-        return True, "", f"{file_name} (Request: {additional_requests})"
-    file_link = os.path.join(PICKGUARD_STORAGE_DIR, "Knobs & Switches", f"{colour}.3mf")
-    return False, file_link, file_name
+    quantity = order_data["finish"]
+    file_name = f"{quantity}, {colour}"
+    name_list = [quantity, colour]
+    
+    flag = False
+    if customisations:
+        flag = True
+        file_name += f" (Request: {customisations})"
+    
+    file_link = ""
+    
+    return flag, file_link, file_name, other_requests, [], name_list
 
 def check_telecaster(order_data):
     
@@ -23,31 +31,42 @@ def check_telecaster(order_data):
     finish = order_data["finish"]
     handed = order_data["handed"]
     holes = order_data["holes"]
-    additional_requests = order_data["additional_requests"]
+    customisations = order_data["customisations"]
+    other_requests = order_data["other_requests"]
     
-    design_name = ALIASES[design]
     design_info = DESIGNS[design]
     
-    name_list = [design_name, brand.capitalize(), model.upper(), colour.capitalize(), finish.capitalize(), handed, f"{'with holes' if holes == 'yes' else 'without holes'}"]
+    name_list = [design, model, colour, finish, handed, f"{'With Holes' if holes == 'yes' else 'Without Holes'}"]
+
     file_name = " ".join(p for p in name_list if p)
     
-    if additional_requests:
-        return True, "", f"{file_name} (Request: {additional_requests})"
+    flag = False
+    errors = []
+    
+    if customisations:
+        flag = True
+        file_name += f" (Request: {customisations})"
     
     if not brand or not model:
-        return True, "", f"{file_name} (Brand/Model not given)"
+        flag = True
+        errors.append("Brand/Model not given")
     
-    if brand not in design_info["model"]:
-        return True, "", f"{file_name} (Brand not supported ({brand}))"
+    if brand and brand not in design_info["model"].keys():
+        flag = True
+        errors.append(f"Brand not supported ({brand})")
     
-    if model not in design_info["model"][brand]:
-        return True, "", f"{file_name} Model not supported ({model})"
+    if model and model not in design_info["model"].get(brand, ""):
+        flag = True
+        errors.append(f"Model not supported ({model})")
     
-    endpoint = "holes.3mf" if holes == "yes" else "no holes.3mf"
+    endpoint = "Holes.3mf" if holes == "yes" else "No Holes.3mf"
     
-    file_link = os.path.join(PICKGUARD_STORAGE_DIR, design_name, brand, model, colour, handed, endpoint)
+    if not flag:
+        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, model, colour, handed, endpoint)
+    else:
+        file_link = ""
     
-    return False, file_link, file_name
+    return flag, file_link, file_name, other_requests, errors, name_list
 
 def check_stratocaster(order_data):
     
@@ -58,35 +77,42 @@ def check_stratocaster(order_data):
     pickup_configuration = order_data["pickup_configuration"]
     handed = order_data["handed"]
     holes = order_data["holes"]
-    additional_requests = order_data["additional_requests"]
+    customisations = order_data["customisations"]
+    other_requests = order_data["other_requests"]
     
-    design_name = ALIASES[design]
     design_info = DESIGNS[design]
     
-    name_list = [design_name, pickup_configuration, colour.capitalize(), finish.capitalize(), handed, f"{'with holes' if holes == 'yes' else 'without holes'}"]
+    name_list = [design, pickup_configuration, colour, finish, handed, f"{'With Holes' if holes == 'yes' else 'Without Holes'}"]
     file_name = " ".join(p for p in name_list if p)
     
+    flag = False
     errors = []
-    if additional_requests:
-        errors.append(f"Request: {additional_requests}")
     
-    if brand in design_info["unsupported"] and holes == "yes":
+    
+    if customisations:
+        flag = True
+        file_name += f" (Request: {customisations})"
+    
+    if brand and brand not in design_info["model"].keys() and holes == "yes":
+        flag = True
         errors.append(f"Customer requested holes with unsupported brand: {brand.capitalize()}")
     
     if not pickup_configuration:
+        flag = True
         errors.append("Customer did not provide pickup configuration")
     
-    if pickup_configuration not in design_info["configuration"]:
+    if pickup_configuration and pickup_configuration not in design_info["configuration"]:
+        flag = True
         errors.append(f"Customer provided unsupported pickup configuration: {pickup_configuration})")
     
-    endpoint = "holes.3mf" if holes == "yes" else "no holes.3mf"
+    endpoint = "Holes.3mf" if holes == "yes" else "No Holes.3mf"
     
-    file_link = os.path.join(PICKGUARD_STORAGE_DIR, design_name, colour, pickup_configuration, handed, endpoint)
+    if not flag:
+        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, pickup_configuration, colour, handed, endpoint)
+    else:
+        file_link = ""
     
-    if errors:
-        return "", file_name, errors
-    
-    return file_link, file_name, errors
+    return flag, file_link, file_name, other_requests, errors, name_list
 
 def check_stingray(order_data):
     
@@ -97,107 +123,91 @@ def check_stingray(order_data):
     finish = order_data["finish"]
     handed = order_data["handed"]
     holes = order_data["holes"]
+    customisations = order_data["customisations"]
+    other_requests = order_data["other_requests"]
     
-    design_name = ALIASES[design]
-    design_info = DESIGNS[design]   
+    flag = False
+    errors = []
     
-    name_list = [design_name, colour.capitalize(), finish.capitalize(), handed, f"{'with holes' if holes == 'yes' else 'without holes'}"]
+    if design in ("Stingray", "Stingray Shark", "Stingray Lobster"):
+        design_check = "Stingray"
+
+    design_info = DESIGNS[design_check]   
+    
+    name_list = [design, brand, model, colour, finish, handed, f"{'With Holes' if holes == 'yes' else 'Without Holes'}"]
     file_name = " ".join(p for p in name_list if p)
 
-    if model in design_info.get(brand, []):
-        return True, "", f"{file_name} (Model ({model}) not supported)"
+    unsupported = design_info["unsupported"]
+    
+    if any(model in models for models in unsupported.values()):
+        flag = True
+        errors.append(f"Model not supported ({model})")
+    if customisations:
+        flag = True
+        file_name += f" (Request: {customisations})"
 
-    endpoint = "holes.3mf" if holes == "yes" else "no holes.3mf"
+        
+    endpoint = "Holes.3mf" if holes == "yes" else "No Holes.3mf"
     
-    file_link = os.path.join(PICKGUARD_STORAGE_DIR, design_name, colour, handed, endpoint)
+    if not flag:
+        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, brand, model, colour, handed, endpoint)
+    else:
+        file_link = ""
     
-    return False, file_link, file_name
+    return flag, file_link, file_name, other_requests, errors, name_list
     
 def check_default(order_data):
     
     design = order_data["design"]
-    brand = order_data["brand"]
-    model = order_data["model"]
     colour = order_data["colour"]
     finish = order_data["finish"]
     handed = order_data["handed"]
     holes = order_data["holes"]
-    pickup_configuration = order_data["pickup_configuration"]
-    additional_requests = order_data["additional_requests"]
-    
-    design_name = ALIASES[design]
-    
-    name_list = [design_name, brand.capitalize(), model.capitalize(), pickup_configuration, colour.capitalize(), finish.capitalize(), handed, f"{'with holes' if holes == 'yes' else 'without holes'}"]
+    customisations = order_data["customisations"]
+    other_requests = order_data["other_requests"]
+
+    name_list = [design, colour, finish, handed, f"{'With Holes' if holes == 'yes' else 'Without Holes'}"]
     file_name = " ".join(p for p in name_list if p)
+    if customisations:
+        return True, "", f"{file_name} (Request: {customisations})", other_requests, []
     
-    if additional_requests:
-        return True, "", f"{file_name} (Request: {additional_requests})"
+    endpoint = "Holes.3mf" if holes == "yes" else "No Holes.3mf"
     
-    endpoint = "holes.3mf" if holes == "yes" else "no holes.3mf"
+    file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour, handed, endpoint)
     
-    file_link = os.path.join(PICKGUARD_STORAGE_DIR, design_name, brand, model, pickup_configuration, colour, handed, endpoint)
-    
-    return False, file_link, file_name
+    return False, file_link, file_name, other_requests, [], name_list
     
 def model_check(order_data):
     design = order_data["design"]
-    design_name = ALIASES[design]
     
-    if design_name == "Knobs & Switches":
+    if design == "Knobs & Switches":
         return check_knobs(order_data)
     
-    if design_name == "Telecatster":
+    if design == "Telecaster":
         return check_telecaster(order_data)
     
-    if design_name in ("Stratocatster", "Stratocaster Tiger"):
+    if design in ("Stratocaster", "Stratocaster Tiger"):
         return check_stratocaster(order_data)
     
-    if design_name in ("Stingray", "Stingray 5"):
+    if design in ("Stingray", "Stingray 5", "Stingray Shark", "Lobster"):
         return check_stingray(order_data)
 
     return check_default(order_data)
 
-            
 
-def format_order(): # testing
-    
-    # Extract raw information from order
-    product = 'Stratocaster Cat Pickguard, Fender Stratocatster'
-    customer_name = "test"
-    # notes = order[25]
-    
+def format_order(design, colour, finish, notes):
     
     # Use LLM to extract order information from notes
-    # prompt = f"design name: [{product}], {notes}"
-    # order_json = await gpt_request(prompt)
+    prompt = f"design name: [{design}], {notes}"
     
-    # Convert JSON object to dict
-    order_data = {
-        "design": 'Stratocaster Cat Pickguard, Fender Stratocatster',
-        "colour": "black",
-        "finish": "standard",
-        "brand": "squire",
-        "model": "affinity",
-        "handed": "RH",
-        "holes": "yes",
-        "pickup_configuration": "HSH",
-        "additional_requests": ""
-    }
+    order_json = gpt_request(prompt)
+    # print(order_json)
+    order_data = json.loads(order_json)
+    print(order_data)
     
-    file_link, file_name, errors = model_check(order_data)
-    errors_string = "; ".join(errors)
-    
-    # insert_job(file_name, position=1, file_path=file_link, customer_name=customer_name, errors=errors_string)
-    
+    order_data["colour"] = colour if colour else ""
+    order_data["finish"] = finish if finish else ""
         
-            
-
-# def get_orders():
-#     # Access etsy orders
-    
-#     # Fetch most recent orders by comparing order id of last fetched order
-#     orders = []
-#     # Iterate through orders and extract information for DB
-#     for order in orders:
-#         if format_order(order):
-#             pass
+    print(model_check(order_data))
+    flag, file_path, file_name, requests, errors, name_list = model_check(order_data)
+    return file_path, file_name, requests, errors, name_list

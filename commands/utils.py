@@ -2,11 +2,13 @@ from config import CHATGPT_TOKEN, AUTHORISED_IDS, CUSTOM_STORAGE_DIR
 from db import remove_job
 import os
 import asyncio
+from openai import OpenAI
+from order_management import PROMPT
 
-async def send_all(context, message, reply_markup=None):
+async def send_all(bot, message, reply_markup=None):
     for user_id in AUTHORISED_IDS:
         try:
-            await context.bot.send_message(chat_id=user_id, text=message, reply_markup=reply_markup)
+            await bot.send_message(chat_id=user_id, text=message, reply_markup=reply_markup)
         except Exception as e:
             print(f"⚠️ Could not send message to {user_id}: {e}")
             
@@ -23,3 +25,19 @@ def delete_file(file_path):
                 os.remove(file_path)
             except Exception as e:
                 print(f"⚠️ Could not delete file {file_path}: {e}")
+                
+def gpt_request(prompt):
+    client = OpenAI(api_key=CHATGPT_TOKEN)
+    response = client.responses.create(
+        model = "gpt-4o-mini",
+        input = [
+            {"role": "system", "content": PROMPT},
+            {"role": "user", "content": prompt},
+        ]
+    )
+    
+    return response.output_text
+
+def chunk_list(data, chunk_size=40):
+    for i in range(0, len(data), chunk_size):
+        yield data[i:i + chunk_size]

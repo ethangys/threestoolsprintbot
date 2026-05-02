@@ -12,7 +12,9 @@ CREATE TABLE IF NOT EXISTS jobs (
     assigned_user TEXT DEFAULT 'Unassigned',
     status TEXT DEFAULT 'Received',
     position REAL,
-    errors TEXT DEFAULT ''
+    errors TEXT DEFAULT '[]'
+    customisation_flag TEXT DEFAULT 'False'
+    other_requests TEXT DEFAULT ''
 )            
 """)
 
