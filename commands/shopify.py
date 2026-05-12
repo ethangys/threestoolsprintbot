@@ -8,7 +8,7 @@ import commands.etsy as etsy
 from commands.jobs import addjob
 import asyncio
 import aiohttp
-from commands.stock import check_stock, update_stock, generate_code
+import commands.stock as stock
 
 SHOP = "threestools.myshopify.com"
 TOKEN = SHOPIFY_TOKEN
@@ -70,6 +70,47 @@ async def shopify_post(url, headers, query, retries=3, delay=5):
                 
         print("Failed to fetch data after retries")
         return None
+
+def update_stock(design_name, name_list, quantity):
+    stock_available = False
+    if design_name == "Knobs & Switches":
+        knob_available = False
+        switch_available = False
+        knob_colour = name_list[1]
+        parts_list = name_list[0][2:].split(" + ")
+        knob_name = f"Knob - {knob_colour}"
+        switch_name = f"Switch - {knob_colour}"
+        if len(parts_list) == 2:
+            knob_quantity = int(name_list[0][0])
+            knob_available = stock.check_stock(knob_name, quantity*knob_quantity)[0]
+            switch_available = stock.check_stock(switch_name)[0]
+            if knob_available and switch_available:
+                stock_available = True
+                stock.update_stock(knob_name, quantity*knob_quantity)
+                stock.update_stock(switch_name, quantity)
+        else:
+            if parts_list[0] in ("Knob", "Knobs"):
+                knob_quantity = int(name_list[0][0])
+                knob_available = stock.check_stock(knob_name, quantity*knob_quantity)[0]
+                if knob_available:
+                    stock_available = True
+                    stock.update_stock(knob_name, knob_quantity*quantity)
+            else:
+                switch_available = stock.check_stock(switch_name, quantity)[0]
+                if switch_available:
+                    stock_available = True
+                    stock.update_stock(switch_name, quantity)
+    else:
+        item_code = stock.generate_code(name_list)
+        print(item_code)
+        if stock.check_stock(item_code, quantity)[0]:
+            stock_available = True
+            stock.update_stock(item_code, quantity)
+                
+    status = "Received"
+    if stock_available:
+        status = "Printed"
+    return status
 
 async def get_orders():
     while True:
@@ -165,48 +206,15 @@ async def get_orders():
                                             colour, finish = variant_arr
                                             
                             print(customer_name)
-                            print(item_string, variant_arr)
-                            file_path, file_name, requests, errors, name_list = etsy.format_order(design=item_name, colour=colour, finish=finish, notes=personalisation)
-                            stock_available = False
-                            if item_name == "Knobs & Switches":
-                                knob_available = False
-                                switch_available = False
-                                knob_colour = name_list[1]
-                                parts_list = name_list[0][2:].split(" + ")
-                                knob_name = f"Knob - {knob_colour}"
-                                switch_name = f"Switch - {knob_colour}"
-                                if len(parts_list) == 2:
-                                    knob_quantity = int(name_list[0][0])
-                                    knob_available = check_stock(knob_name, quantity*knob_quantity)[0]
-                                    switch_available = check_stock(switch_name)[0]
-                                    if knob_available and switch_available:
-                                        stock_available = True
-                                        update_stock(knob_name, quantity*knob_quantity)
-                                        update_stock(switch_name, quantity)
-                                else:
-                                    if parts_list[0] in ("Knob", "Knobs"):
-                                        knob_quantity = int(name_list[0][0])
-                                        knob_available = check_stock(knob_name, quantity*knob_quantity)[0]
-                                        if knob_available:
-                                            stock_available = True
-                                            update_stock(knob_name, knob_quantity*quantity)
-                                    else:
-                                        switch_available = check_stock(switch_name, quantity)[0]
-                                        if switch_available:
-                                            stock_available = True
-                                            update_stock(switch_name, quantity)
-                            else:
-                                item_code = generate_code(name_list)
-                                print(item_code)
-                                if check_stock(item_code, quantity)[0]:
-                                    stock_available = True
-                                    update_stock(item_code, quantity)
-                                        
+                            print(item_string)
+                            flag, file_path, file_name, requests, errors, name_list, glossy = etsy.format_order(design=item_name, colour=colour, finish=finish, notes=personalisation)
                             status = "Received"
-                            if stock_available:
-                                status = "Printed"
-                            print(status)
-                            await addjob(customer_name, file_name, file_path, errors, requests, status)
+                            if not flag:
+                                status = update_stock(item_name, name_list, quantity)
+                            if glossy and status == "Printed":
+                                status = "Complete"
+                            
+                            await addjob(customer_name, file_name, file_path, errors, requests, status, glossy)
                                 
         except Exception as e:
             print(f"Error fetching orders: {e}")

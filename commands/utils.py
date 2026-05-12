@@ -33,7 +33,8 @@ def gpt_request(prompt):
         input = [
             {"role": "system", "content": PROMPT},
             {"role": "user", "content": prompt},
-        ]
+        ],
+        temperature = 0
     )
     
     return response.output_text

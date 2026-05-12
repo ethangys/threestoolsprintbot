@@ -1,5 +1,5 @@
 from telegram import BotCommand
-from commands.shopify_consolidated import get_orders
+from commands.shopify import get_orders
 import asyncio
 
 async def register_commands(app):
@@ -9,6 +9,7 @@ async def register_commands(app):
         BotCommand("newjob", "Add new print job"),
         BotCommand("queue", "Show current queue"),
         BotCommand("prints", "Show current print jobs"),
+        BotCommand("glossy", "Show jobs that need glossy finish"),
         BotCommand("jobs", "Show ready to dispatch jobs")
     ]
     await app.bot.set_my_commands(commands)

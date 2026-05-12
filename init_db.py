@@ -13,8 +13,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     status TEXT DEFAULT 'Received',
     position REAL,
     errors TEXT DEFAULT '[]'
-    customisation_flag TEXT DEFAULT 'False'
     other_requests TEXT DEFAULT ''
+    glossy INTEGER DEFAULT 0
 )            
 """)
 
