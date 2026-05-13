@@ -218,8 +218,9 @@ def format_order(design, colour, finish, notes):
     order_data["finish"] = finish if finish else ""
     if finish == "Glossy":
         glossy = 1
-    glossy = 0
+    else:
+        glossy = 0
         
     print(model_check(order_data))
-    flag, file_path, file_name, requests, errors, name_list, glossy = model_check(order_data)
+    flag, file_path, file_name, requests, errors, name_list = model_check(order_data)
     return flag, file_path, file_name, requests, errors, name_list, glossy
