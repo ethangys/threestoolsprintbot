@@ -39,6 +39,6 @@ def gpt_request(prompt):
     
     return response.output_text
 
-def chunk_list(data, chunk_size=40):
+def chunk_list(data, chunk_size=30):
     for i in range(0, len(data), chunk_size):
         yield data[i:i + chunk_size]

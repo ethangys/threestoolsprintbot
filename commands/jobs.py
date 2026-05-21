@@ -31,7 +31,7 @@ def format_queue(all_jobs):
         buttons = []
         last_status = None
         for status_name, job in chunk:
-            id, customer_name, file_name, assigned_user, status, position, file_path, errors, other_requests, glossy = job
+            id, customer_name, file_name, assigned_user, status, position, file_path, errors, other_requests, glossy, source = job
 
             # Show status header if new
             if status_name != last_status:
@@ -112,7 +112,7 @@ def format_glossy():
         text = "🖌️ To Glossy:\n\n"
         buttons = []
         for job in chunk:
-            id, customer_name, file_name, assigned_user, status, position, file_path, errors, other_requests, glossy = job
+            id, customer_name, file_name, assigned_user, status, position, file_path, errors, other_requests, glossy, source = job
             text += f"{i}. {customer_name} - {file_name} [{assigned_user}]\n"
             buttons.append([
                 InlineKeyboardButton(f"✅ #{i}", callback_data=f"complete_{id}_{i}"),
@@ -141,12 +141,17 @@ def format_jobs():
         text = "📦 To Ship:\n\n"
         buttons = []
         for job in chunk:
-            id, customer_name, file_name, assigned_user, status, position, file_path, errors, other_requests, glossy = job
-            text += f"{i}. {customer_name} - {file_name} [{assigned_user}]\n"
+            id, customer_name, file_name, assigned_user, status, position, file_path, errors, other_requests, glossy, source = job
+            text_source = ""
+            if source == "Etsy":
+                text_source = "🔵 "
+            elif source == "Online Store":
+                text_source = "🟢 "
+            text += f"{i}. {text_source}{customer_name} - {file_name} [{assigned_user}]\n"
             buttons.append([
                 InlineKeyboardButton(f"📦 #{i}", callback_data=f"dispatched_{id}_{i}"),
                 InlineKeyboardButton(f"📊 #{i}", callback_data=f"status_{id}_{i}"),
-                InlineKeyboardButton(f"❌ #{i}", callback_data=f"remove_{id}_{i}")
+                InlineKeyboardButton(f"❌ #{i}", callback_data=f"remove_{id}_{i}"),
             ])
             i += 1
         reply_markup = InlineKeyboardMarkup(buttons)
@@ -239,7 +244,7 @@ async def handle_file(update, context):
     
     # If job has valid file path (Fetched from etsy)
     if "file_path" in context.user_data:
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(context.user_data["job_id"])
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(context.user_data["job_id"])
         # If requires customisation
         if context.user_data["file_path"] == "custom":
             # Upload to custom storage directory to be deleted later
@@ -269,7 +274,7 @@ async def handle_file(update, context):
             await file.download_to_drive(file_path)
         elif text:
             file_path = ""
-        insert_job(file_name=file_name, position=pos, assigned_user=assigned_user, file_path=file_path, customer_name=customer_name)
+        insert_job(file_name=file_name, position=pos, assigned_user=assigned_user, file_path=file_path, customer_name=customer_name, glossy=1, source="")
         await send_all(context.bot, f"✅ Added Job: {file_name} at {f'position {pos}' if pos != 0 else 'end of queue'}.")
         del context.user_data["position"]
         del context.user_data["file_name"]
@@ -298,7 +303,7 @@ async def button_callback(update, context):
     # Remove button handler
     elif data.startswith("remove_"):
         job_id = int(data.split("_")[1])
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         remove_job(job_id)
         
         if not check_existing_file_path(file_path):
@@ -308,7 +313,7 @@ async def button_callback(update, context):
     
     elif data.startswith("status_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         
         status_buttons = [
             [
@@ -349,7 +354,7 @@ async def button_callback(update, context):
     
     elif data.startswith("edit_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         
         status_buttons = [
             [
@@ -364,27 +369,27 @@ async def button_callback(update, context):
     
     elif data.startswith("name_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         
         
         context.user_data["editing_job"] = True
         context.user_data["job_id"] = job_id
         
-        await query.message.reply_text(f"✏️ Send the new job name for:\n{customer_name} - {file_name}")
+        await query.message.reply_text(f"✏️ Send the new job name for:\n{file_name}")
         
     elif data.startswith("link_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         
         
         context.user_data["editing_link"] = True
         context.user_data["job_id"] = job_id
         
-        await query.message.reply_text(f"✏️ Send the new file path for:\n{customer_name} - {file_name}")
+        await query.message.reply_text(f"✏️ Send the new file path:\nCurrent file path: {file_path}\nDefault file path: /home/joobeepi/printbot2/Pickguards/")
     
     elif data.startswith("errors_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         
         errors_list = json.loads(errors)
         message = "⚠️ Errors:\n"
@@ -394,18 +399,18 @@ async def button_callback(update, context):
     
     elif data.startswith("unflag_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         unflag(job_id)
         await query.message.reply_text(f"{customer_name} - {file_name} has been unflagged ✅")
     
     elif data.startswith("requests_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         await query.message.reply_text(f"Additional Requests: {other_requests}")
         
     elif data.startswith("printing_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         update_status(job_id, "Printing")
         
         await send_all(context.bot, message=f"{customer_name} - {file_name} [{assigned_user}] status set to Printing 🖨️")
@@ -415,7 +420,7 @@ async def button_callback(update, context):
         
     elif data.startswith("printed_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         if not glossy:
             update_status(job_id, "Complete")
             await send_all(context.bot, message=f"{customer_name} - {file_name} status set to Complete ✅")
@@ -428,14 +433,14 @@ async def button_callback(update, context):
             
     elif data.startswith("complete_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         update_status(job_id, "Complete")
         await send_all(context.bot, message=f"{customer_name} - {file_name} status set to Complete ✅")
 
     
     elif data.startswith("dispatched_"):
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         all_jobs = get_queue_data()
         for status, jobs in all_jobs.items():
             for job in jobs:
@@ -453,7 +458,7 @@ async def button_callback(update, context):
     elif data.startswith("upload_"):
         
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         
         await query.message.reply_text(f"📎 Send me the file for {customer_name} - {file_name}")
         await query.answer()
@@ -465,17 +470,18 @@ async def button_callback(update, context):
         
     else:
         job_id = data.split("_")[1]
-        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy = get_job(job_id)
+        customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
         update_assigned(job_id, user_name)
+        
         
         await send_all(context.bot, f"{customer_name} - {file_name} has been claimed by {user_name}")
         
-        # for message, reply_markup in format_prints():
-        #     await query.message.reply_text(message, reply_markup=reply_markup)
+        for message, reply_markup in format_prints():
+            await query.message.reply_text(message, reply_markup=reply_markup)
 
-async def addjob(customer_name, file_name, file_path, errors, other_requests, status, glossy):
+async def addjob(customer_name, file_name, file_path, errors, other_requests, status, glossy, source):
     errors_str = json.dumps(errors)
-    insert_job(file_name=file_name, position=0, customer_name=customer_name, file_path=file_path, errors=errors_str, other_requests=other_requests, status=status, glossy=glossy)
+    insert_job(file_name=file_name, position=0, customer_name=customer_name, file_path=file_path, errors=errors_str, other_requests=other_requests, status=status, glossy=glossy, source=source)
     if status == "Received":
         await send_all(Bot(token=BOT_TOKEN), f"New Job Added: {customer_name} - {file_name} ✅")
     else:

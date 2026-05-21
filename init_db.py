@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS jobs (
     position REAL,
     errors TEXT DEFAULT '[]',
     other_requests TEXT DEFAULT '',
-    glossy INTEGER DEFAULT 0
+    glossy INTEGER DEFAULT 0,
+    source TEXT DEFAULT ''
 )            
 """)
 

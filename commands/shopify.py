@@ -71,7 +71,7 @@ async def shopify_post(url, headers, query, retries=3, delay=5):
         print("Failed to fetch data after retries")
         return None
 
-def update_stock(design_name, name_list, quantity):
+def update_stock(design_name, glossy, name_list, quantity):
     stock_available = False
     if design_name == "Knobs & Switches":
         knob_available = False
@@ -102,10 +102,20 @@ def update_stock(design_name, name_list, quantity):
                     stock.update_stock(switch_name, quantity)
     else:
         item_code = stock.generate_code(name_list)
-        print(item_code)
-        if stock.check_stock(item_code, quantity)[0]:
-            stock_available = True
-            stock.update_stock(item_code, quantity)
+        stock.update_frequency(item_code)
+        if not glossy:
+            if stock.check_stock(item_code, quantity)[0]:
+                stock_available = True
+                stock.update_stock(item_code, quantity)
+        else:
+            name_list.append("Glossy")
+            item_code_glossy = stock.generate_code(name_list)
+            if stock.check_stock(item_code_glossy, quantity)[0]:
+                stock_available = True
+                stock.update_stock(item_code_glossy, quantity)
+            elif stock.check_stock(item_code, quantity)[0]:
+                stock_available = True
+                stock.update_stock(item_code, quantity)
                 
     status = "Received"
     if stock_available:
@@ -179,6 +189,7 @@ async def get_orders():
                             if variants:
                                 variant_arr = [option.strip() for option in variants.split("/") if option.strip()]
                             if source == "Shuttle - Sync with Etsy":
+                                source = "Etsy"
                                 item_name = ETSY_ALIASES.get(item["title"], item["title"])
                             else:
                                 item_name = SHOPIFY_ALIASES.get(item["title"], item["title"])
@@ -209,12 +220,13 @@ async def get_orders():
                             print(item_string)
                             flag, file_path, file_name, requests, errors, name_list, glossy = etsy.format_order(design=item_name, colour=colour, finish=finish, notes=personalisation)
                             status = "Received"
-                            if not flag:
-                                status = update_stock(item_name, name_list, quantity)
-                            if glossy and status == "Printed":
+                            isCustomOrder = file_name.startswith("Custom")
+                            if not flag and not isCustomOrder:
+                                status = update_stock(item_name, glossy, name_list, quantity)
+                            if not glossy and status == "Printed":
                                 status = "Complete"
-                            
-                            await addjob(customer_name, file_name, file_path, errors, requests, status, glossy)
+                            if not isCustomOrder:
+                                await addjob(customer_name, file_name, file_path, errors, requests, status, glossy, source)
                                 
         except Exception as e:
             print(f"Error fetching orders: {e}")

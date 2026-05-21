@@ -7,6 +7,7 @@ SCOPES = [
     "https://www.googleapis.com/auth/drive"
 ]
 STOCK_COL = 2
+FREQUENCY_COL = 3
 
 creds = Credentials.from_service_account_file(SERVICE_ACCOUNT_FILE, scopes=SCOPES)
 client = gspread.authorize(creds)
@@ -14,7 +15,7 @@ sheet = client.open("Pickguard Stock").sheet1
 
 def generate_code(variant_arr):
     for i in range(len(variant_arr)):
-        if variant_arr[i] in ("Glossy", "Standard", "Standard (Bent Ear)"):
+        if variant_arr[i] in ("Glossy", "Standard", "Standard (Bent Ear)") and i != len(variant_arr) - 1:
             variant_arr[i] = ""
         if variant_arr[i] == "With Holes":
             variant_arr[i] = "Holes"
@@ -26,7 +27,7 @@ def generate_code(variant_arr):
 def get_row(design):
     cell = sheet.find(design)
     if not cell:
-        sheet.append_row([design, 0])
+        sheet.append_row([design, 0, 0])
         cell = sheet.find(design)
     row = cell.row
     return row
@@ -37,6 +38,11 @@ def check_stock(design, quantity=1):
     if stock - quantity >= 0:
         return True, row, stock
     return False, row, stock
+
+def update_frequency(design):
+    row = get_row(design)
+    frequency = int(sheet.cell(row, FREQUENCY_COL).value)
+    sheet.update_cell(row, FREQUENCY_COL, frequency + 1)
 
 def update_stock(design, quantity=1):
     stock_available, row, stock = check_stock(design, quantity)
