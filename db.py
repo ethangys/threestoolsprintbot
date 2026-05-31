@@ -80,3 +80,8 @@ def check_existing_file_path(file_path):
     if int(jobs_count) > 0:
         return True
     return False
+
+def update_glossy(job_id, glossy):
+    cur = get_cursor()
+    cur.execute("UPDATE jobs SET glossy=? WHERE id=?", (glossy, job_id))
+    conn.commit()

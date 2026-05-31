@@ -1,6 +1,6 @@
 from telegram import ReplyKeyboardMarkup, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram import Bot
-from db import get_queue_data, insert_job, remove_job, update_status, get_job, update_assigned, update_file_path, check_existing_file_path, update_job_name, unflag
+from db import get_queue_data, insert_job, remove_job, update_status, get_job, update_assigned, update_file_path, check_existing_file_path, update_job_name, unflag, update_glossy
 from commands.utils import send_all, delete_file, chunk_list
 from config import AUTHORISED_NAMES, CUSTOM_STORAGE_DIR, TELEGRAM_USERS, BOT_TOKEN
 import os
@@ -211,6 +211,11 @@ async def handle_file(update, context):
     if context.user_data.get("editing_job") and update.message.text:
         new_name = update.message.text
         job_id = context.user_data["job_id"]
+        name_list = new_name.split(" ")
+        if any(x == "Glossy" for x in name_list):
+            update_glossy(job_id, 1)
+        else:
+            update_glossy(job_id, 0)
         update_job_name(new_name, job_id)
         
         del context.user_data["editing_job"]
@@ -476,8 +481,8 @@ async def button_callback(update, context):
         
         await send_all(context.bot, f"{customer_name} - {file_name} has been claimed by {user_name}")
         
-        for message, reply_markup in format_prints():
-            await query.message.reply_text(message, reply_markup=reply_markup)
+        # for message, reply_markup in format_prints():
+        #     await query.message.reply_text(message, reply_markup=reply_markup)
 
 async def addjob(customer_name, file_name, file_path, errors, other_requests, status, glossy, source):
     errors_str = json.dumps(errors)

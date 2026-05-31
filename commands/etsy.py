@@ -198,7 +198,7 @@ def model_check(order_data):
     if design in ("Stratocaster", "Stratocaster Tiger"):
         return check_stratocaster(order_data)
     
-    if design in ("Stingray", "Stingray 5", "Stingray Shark", "Lobster"):
+    if design in ("Stingray", "Stingray 5", "Stingray Shark", "Stingray Lobster"):
         return check_stingray(order_data)
     
     return check_default(order_data)
