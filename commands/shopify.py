@@ -180,6 +180,8 @@ async def get_orders():
                     order = edge["node"]
                     if order["createdAt"] >= last_polled:
                         source = order["channelInformation"]["app"]["title"]
+                        if source == "Shuttle - Sync with Etsy":
+                            source = "Etsy"
                         customer_name = order["shippingAddress"]["name"]
                         for item_edge in order["lineItems"]["edges"]:
                             item = item_edge["node"]
@@ -188,8 +190,7 @@ async def get_orders():
                             variant_arr = []
                             if variants:
                                 variant_arr = [option.strip() for option in variants.split("/") if option.strip()]
-                            if source == "Shuttle - Sync with Etsy":
-                                source = "Etsy"
+                            if source == "Etsy":
                                 item_name = ETSY_ALIASES.get(item["title"], item["title"])
                             else:
                                 item_name = SHOPIFY_ALIASES.get(item["title"], item["title"])
