@@ -15,7 +15,7 @@ sheet = client.open("Pickguard Stock").sheet1
 
 def generate_code(variant_arr):
     for i in range(len(variant_arr)):
-        if variant_arr[i] in ("Glossy", "Standard", "Standard (Bent Ear)") and i != len(variant_arr) - 1:
+        if (variant_arr[i].startswith("Glossy") or variant_arr[i].startswith("Standard")) and i != len(variant_arr) - 1:
             variant_arr[i] = ""
         if variant_arr[i] == "With Holes":
             variant_arr[i] = "Holes"

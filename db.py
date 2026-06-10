@@ -12,7 +12,7 @@ def get_queue_data():
     queue = {}
     # Iterate through each status and add to queue dict by position
     for status in statuses:
-        jobs = cur.execute("SELECT id, customer_name, file_name, assigned_user, status, position, file_path, errors, other_requests, glossy, source FROM jobs WHERE status=? ORDER BY position ASC", (status,)).fetchall()
+        jobs = cur.execute("SELECT id, customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source FROM jobs WHERE status=? ORDER BY position ASC", (status,)).fetchall()
         queue[status] = jobs
     return queue
 

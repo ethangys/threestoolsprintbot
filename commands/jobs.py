@@ -446,17 +446,16 @@ async def button_callback(update, context):
     elif data.startswith("dispatched_"):
         job_id = data.split("_")[1]
         customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = get_job(job_id)
-        all_jobs = get_queue_data()
-        for status, jobs in all_jobs.items():
-            for job in jobs:
-                order_id = job[0]
-                order_name = job[1]
-                order_path = job[6]
-                if customer_name == order_name:
-                    remove_job(order_id)
-                # Only delete if it is located in custom directory and not being used by another job
-                if not check_existing_file_path(order_path):
-                    delete_file(order_path)
+        completed_jobs = get_queue_data().get("Complete", "")
+        for job in completed_jobs:
+            order_id = job[0]
+            order_name = job[1]
+            order_path = job[3]
+            if customer_name == order_name:
+                remove_job(order_id)
+            # Only delete if it is located in custom directory and not being used by another job
+            if not check_existing_file_path(order_path):
+                delete_file(order_path)
         
         await send_all(context.bot, message=f"Orders for {customer_name} have been dispatched 📦")
         

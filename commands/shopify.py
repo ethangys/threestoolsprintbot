@@ -207,12 +207,12 @@ async def get_orders():
                             else:
                                 if variant_arr:
                                     if len(variant_arr) == 1:
-                                        if variant_arr[0] in ("Glossy", "Standard", "Standard (Bent Ear)"):
+                                        if variant_arr[0].startswith("Glossy") or variant_arr[0].startswith("Standard"):
                                             finish = variant_arr[0]
                                         else:
                                             colour = variant_arr[0]
                                     else:
-                                        if variant_arr[0] in ("Glossy", "Standard", "Standard (Bent Ear)"):
+                                        if variant_arr[0].startswith("Glossy") or variant_arr[0].startswith("Standard"):
                                             finish, colour = variant_arr
                                         else:
                                             colour, finish = variant_arr
