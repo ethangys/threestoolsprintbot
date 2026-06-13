@@ -82,7 +82,7 @@ def check_stratocaster(order_data):
     
     design_info = DESIGNS[design]
     
-    name_list = [design, pickup_configuration, colour, finish, handed, f"{'With Holes' if holes == 'yes' else 'Without Holes'}"]
+    name_list = [design, pickup_configuration, colour.title(), finish.title(), handed, f"{'With Holes' if holes == 'yes' else 'Without Holes'}"]
     file_name = " ".join(p for p in name_list if p)
     
     flag = False
@@ -125,6 +125,7 @@ def check_stingray(order_data):
     holes = order_data["holes"]
     customisations = order_data["customisations"]
     other_requests = order_data["other_requests"]
+    accessory_colour = order_data["accessory_colour"]
     
     flag = False
     errors = []
@@ -134,13 +135,17 @@ def check_stingray(order_data):
     if design in ("Stingray", "Stingray Shark", "Stingray Lobster"):
         design_check = "Stingray"
 
-
     if design == "Stingray Lobster" and not model:
         brand = "SBMM"
         model = "Ray4"
+        
+    finish_list = finish.split(" ")
+    
+    if len(finish_list) > 1 and finish_list[-1] != "Ear)":
+        finish = f"{finish_list[0]} + {accessory_colour} {finish_list[2]}"
 
     design_info = DESIGNS[design_check]
-    name_list = [design, brand, model, colour, finish, handed, f"{'With Holes' if holes == 'yes' else 'Without Holes'}"]
+    name_list = [design, brand, model, colour.title(), finish.title(), handed, f"{'With Holes' if holes == 'yes' else 'Without Holes'}"]
     file_name = " ".join(p for p in name_list if p)
 
     unsupported = design_info["unsupported"]
@@ -174,8 +179,14 @@ def check_default(order_data):
     holes = order_data["holes"]
     customisations = order_data["customisations"]
     other_requests = order_data["other_requests"]
+    accessory_colour = order_data["accessory_colour"]
+    
+    finish_list = finish.split(" ")
+    
+    if len(finish_list) > 1 and finish_list[-1] != "Ear)":
+        finish = f"{finish_list[0]} + {accessory_colour} {finish_list[2]}"
 
-    name_list = [design, colour, finish, handed, f"{'With Holes' if holes == 'yes' else 'Without Holes'}"]
+    name_list = [design, colour.title(), finish.title(), handed, f"{'With Holes' if holes == 'yes' else 'Without Holes'}"]
     file_name = " ".join(p for p in name_list if p)
     if customisations:
         return True, "", f"{file_name} (Request: {customisations})", other_requests, [], name_list
@@ -216,11 +227,12 @@ def format_order(design, colour, finish, notes):
     
     order_data["colour"] = colour if colour else ""
     order_data["finish"] = finish if finish else ""
-    if finish == "Glossy":
+    if finish.startswith("Glossy"):
         glossy = 1
     else:
         glossy = 0
         
-    print(model_check(order_data))
     flag, file_path, file_name, requests, errors, name_list = model_check(order_data)
     return flag, file_path, file_name, requests, errors, name_list, glossy
+
+print(format_order("Revstar", "Cow cat", "Glossy + fish", "Blue Fish"))

@@ -185,15 +185,18 @@ async def get_orders():
                         customer_name = order["shippingAddress"]["name"]
                         for item_edge in order["lineItems"]["edges"]:
                             item = item_edge["node"]
+                            item_name = item["title"]
                             quantity = item.get("quantity")
                             variants = item.get("variantTitle", "")
                             variant_arr = []
                             if variants:
                                 variant_arr = [option.strip() for option in variants.split("/") if option.strip()]
                             if source == "Etsy":
-                                item_name = ETSY_ALIASES.get(item["title"], item["title"])
+                                item_name = ETSY_ALIASES.get(item["title"], "")
+                                if not item_name:
+                                    item_name = SHOPIFY_ALIASES.get(item["title"], item["title"])
                             else:
-                                item_name = SHOPIFY_ALIASES.get(item["title"], item["title"])
+                                item_name = SHOPIFY_ALIASES[item["title"]]
                             item_string = f"  • {item_name} | Variant: {item['variantTitle']}"
                             if item.get("customAttributes", ""):
                                 personalisation = item['customAttributes'][0]['value']

@@ -31,7 +31,7 @@ def format_queue(all_jobs):
         buttons = []
         last_status = None
         for status_name, job in chunk:
-            id, customer_name, file_name, assigned_user, status, position, file_path, errors, other_requests, glossy, source = job
+            id, customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = job
 
             # Show status header if new
             if status_name != last_status:
@@ -76,7 +76,7 @@ def format_prints(assigned_user=None):
     if assigned_user:
         filtered = {}
         for status, jobs in all_jobs.items():
-            filtered_jobs = [job for job in jobs if job[3] == assigned_user]
+            filtered_jobs = [job for job in jobs if job[4] == assigned_user]
             if filtered_jobs:
                 filtered[status] = filtered_jobs
         all_jobs = filtered
@@ -112,7 +112,7 @@ def format_glossy():
         text = "🖌️ To Glossy:\n\n"
         buttons = []
         for job in chunk:
-            id, customer_name, file_name, assigned_user, status, position, file_path, errors, other_requests, glossy, source = job
+            id, customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = job
             text += f"{i}. {customer_name} - {file_name} [{assigned_user}]\n"
             buttons.append([
                 InlineKeyboardButton(f"✅ #{i}", callback_data=f"complete_{id}_{i}"),
@@ -141,7 +141,7 @@ def format_jobs():
         text = "📦 To Ship:\n\n"
         buttons = []
         for job in chunk:
-            id, customer_name, file_name, assigned_user, status, position, file_path, errors, other_requests, glossy, source = job
+            id, customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source = job
             text_source = ""
             if source == "Etsy":
                 text_source = "🔵 "
@@ -263,10 +263,8 @@ async def handle_file(update, context):
             await file.download_to_drive(file_path)
         del context.user_data["file_path"]
         del context.user_data["job_id"]
-        await send_all(context.bot, f"✅ File uploaded for {customer_name} - {file_name} [{assigned_user}]")
         
-        # for message, reply_markup in format_prints():
-        #     await update.message.reply_text(message, reply_markup=reply_markup)
+        await update.message.reply_text(f"✅ File uploaded for {customer_name} - {file_name} [{assigned_user}]")
         
     # For manually added jobs
     else:
@@ -479,9 +477,6 @@ async def button_callback(update, context):
         
         
         await send_all(context.bot, f"{customer_name} - {file_name} has been claimed by {user_name}")
-        
-        # for message, reply_markup in format_prints():
-        #     await query.message.reply_text(message, reply_markup=reply_markup)
 
 async def addjob(customer_name, file_name, file_path, errors, other_requests, status, glossy, source):
     errors_str = json.dumps(errors)
