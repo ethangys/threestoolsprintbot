@@ -3,7 +3,6 @@ from db import remove_job
 import os
 import asyncio
 from openai import OpenAI
-from order_management import PROMPT
 
 async def send_all(bot, message, reply_markup=None):
     for user_id in AUTHORISED_IDS:
@@ -25,19 +24,6 @@ def delete_file(file_path):
                 os.remove(file_path)
             except Exception as e:
                 print(f"⚠️ Could not delete file {file_path}: {e}")
-                
-def gpt_request(prompt):
-    client = OpenAI(api_key=CHATGPT_TOKEN)
-    response = client.responses.create(
-        model = "gpt-4o-mini",
-        input = [
-            {"role": "system", "content": PROMPT},
-            {"role": "user", "content": prompt},
-        ],
-        temperature = 0
-    )
-    
-    return response.output_text
 
 def chunk_list(data, chunk_size=30):
     for i in range(0, len(data), chunk_size):

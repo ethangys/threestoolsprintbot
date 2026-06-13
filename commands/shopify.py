@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from tokens import SHOPIFY_TOKEN, SHOPIFY_CLIENT_ID
 import state as state
 from order_management import SHOPIFY_ALIASES, ETSY_ALIASES
-import commands.etsy as etsy
+from commands.order import format_order
 from commands.jobs import addjob
 import asyncio
 import aiohttp
@@ -198,11 +198,14 @@ async def get_orders():
                             else:
                                 item_name = SHOPIFY_ALIASES[item["title"]]
                             item_string = f"  • {item_name} | Variant: {item['variantTitle']}"
-                            if item.get("customAttributes", ""):
-                                personalisation = item['customAttributes'][0]['value']
-                                item_string += f" | Note: {personalisation}"
-                            else:
-                                personalisation = ""
+                            raw_options = item.get("customAttributes", "")
+                            formatted_options = {}
+                            if raw_options:
+                                for cfg in raw_options:
+                                    if cfg["key"] in ("Fish Colour", "Butterfly Colour"):
+                                        formatted_options[cfg["key"]] = "Accessory Colour"
+                                    else:
+                                        formatted_options[cfg["key"]] = cfg["value"]
                             colour, finish = (None, None)
                             if item_name == "Knobs & Switches":
                                 finish = variant_arr[0]
@@ -222,15 +225,17 @@ async def get_orders():
                                             
                             print(customer_name)
                             print(item_string)
-                            flag, file_path, file_name, requests, errors, name_list, glossy = etsy.format_order(design=item_name, colour=colour, finish=finish, notes=personalisation)
+                            flag, file_path, file_name, requests, name_list, glossy = format_order(design=item_name, colour=colour, finish=finish, options=formatted_options)
                             status = "Received"
                             isCustomOrder = file_name.startswith("Custom")
                             if not flag and not isCustomOrder:
                                 status = update_stock(item_name, glossy, name_list, quantity)
+                                # pass
                             if not glossy and status == "Printed":
                                 status = "Complete"
                             if not isCustomOrder:
                                 await addjob(customer_name, file_name, file_path, errors, requests, status, glossy, source)
+                                # pass
                                 
         except Exception as e:
             print(f"Error fetching orders: {e}")

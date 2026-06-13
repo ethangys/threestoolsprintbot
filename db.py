@@ -12,11 +12,11 @@ def get_queue_data():
     queue = {}
     # Iterate through each status and add to queue dict by position
     for status in statuses:
-        jobs = cur.execute("SELECT id, customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source FROM jobs WHERE status=? ORDER BY position ASC", (status,)).fetchall()
+        jobs = cur.execute("SELECT id, customer_name, file_name, file_path, assigned_user, status, position, requests, glossy, source FROM jobs WHERE status=? ORDER BY position ASC", (status,)).fetchall()
         queue[status] = jobs
     return queue
 
-def insert_job(file_name, position=None, assigned_user="Unassigned", status="Received", file_path="", customer_name="Manual", errors="[]", other_requests="", glossy=1, source=""):
+def insert_job(file_name, position=None, assigned_user="Unassigned", status="Received", file_path="", customer_name="Manual", requests="", glossy=1, source=""):
     cur = get_cursor()
     # Get position value
     jobs = cur.execute("SELECT position FROM jobs ORDER BY position ASC").fetchall()
@@ -35,7 +35,7 @@ def insert_job(file_name, position=None, assigned_user="Unassigned", status="Rec
             pos = (jobs[position-1][0] + jobs[position][0])/2
     else:
         pos = jobs[-1][0] + 1
-    cur.execute("INSERT INTO jobs (customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)", (customer_name, file_name, file_path, assigned_user, status, pos, errors, other_requests, glossy, source))
+    cur.execute("INSERT INTO jobs (customer_name, file_name, file_path, assigned_user, status, position, requests, glossy, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (customer_name, file_name, file_path, assigned_user, status, pos, requests, glossy, source))
     conn.commit()
 
 def remove_job(job_id):
@@ -51,7 +51,7 @@ def update_status(job_id, status):
     
 def get_job(job_id):
     cur = get_cursor()
-    job = cur.execute("SELECT customer_name, file_name, file_path, assigned_user, status, position, errors, other_requests, glossy, source FROM jobs WHERE id=?", (job_id, )).fetchone()
+    job = cur.execute("SELECT customer_name, file_name, file_path, assigned_user, status, position, requests, glossy, source FROM jobs WHERE id=?", (job_id, )).fetchone()
     return job
 
 def update_assigned(job_id, user):
@@ -67,11 +67,6 @@ def update_file_path(file_path, job_id):
 def update_job_name(job_name, job_id):
     cur = get_cursor()
     cur.execute("UPDATE jobs SET file_name=? WHERE id=?", (job_name, job_id))
-    conn.commit()
-
-def unflag(job_id):
-    cur = get_cursor()
-    cur.execute("UPDATE jobs SET errors='[]' WHERE id=?", (job_id,))
     conn.commit()
     
 def check_existing_file_path(file_path):
