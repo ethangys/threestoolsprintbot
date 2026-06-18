@@ -2,13 +2,14 @@ import requests
 import time
 from datetime import datetime, timedelta, timezone
 from tokens import SHOPIFY_TOKEN, SHOPIFY_CLIENT_ID
-import state as state
+import state
 from order_management import SHOPIFY_ALIASES, ETSY_ALIASES
 from commands.order import format_order
 from commands.jobs import addjob
 import asyncio
 import aiohttp
 import commands.stock as stock
+import unpaid_orders as u
 
 SHOP = "threestools.myshopify.com"
 TOKEN = SHOPIFY_TOKEN
@@ -122,6 +123,68 @@ def update_stock(design_name, glossy, name_list, quantity):
         status = "Printed"
     return status
 
+async def process_order(order):
+    source = order["channelInformation"]["app"]["title"]
+    if source == "Shuttle - Sync with Etsy":
+        source = "Etsy"
+    customer_name = order["shippingAddress"]["name"]
+    for item_edge in order["lineItems"]["edges"]:
+        item = item_edge["node"]
+        item_name = item["title"]
+        quantity = item.get("quantity")
+        variants = item.get("variantTitle", "")
+        variant_arr = []
+        if variants:
+            variant_arr = [option.strip() for option in variants.split("/") if option.strip()]
+        if source == "Etsy":
+            item_name = ETSY_ALIASES.get(item["title"], "")
+            if not item_name:
+                item_name = SHOPIFY_ALIASES.get(item["title"], item["title"])
+        else:
+            item_name = SHOPIFY_ALIASES[item["title"]]
+        item_string = f"  • {item_name} | Variant: {item['variantTitle']}"
+        raw_options = item.get("customAttributes", "")
+        formatted_options = {}
+        if raw_options:
+            for cfg in raw_options:
+                if cfg["key"] in ("Fish Colour", "Butterfly Colour"):
+                    formatted_options["Accessory Colour"] = cfg["value"]
+                else:
+                    formatted_options[cfg["key"]] = cfg["value"]
+        colour, finish = (None, None)
+        if item_name == "Knobs & Switches":
+            finish = variant_arr[0]
+            colour = variant_arr[1]
+        else:
+            if variant_arr:
+                if len(variant_arr) == 1:
+                    if variant_arr[0].startswith("Glossy") or variant_arr[0].startswith("Standard"):
+                        finish = variant_arr[0]
+                    else:
+                        colour = variant_arr[0]
+                else:
+                    if variant_arr[0].startswith("Glossy") or variant_arr[0].startswith("Standard"):
+                        finish = variant_arr[0]
+                        colour = variant_arr[1]
+                    else:
+                        colour = variant_arr[0]
+                        finish = variant_arr[1]
+        
+        print(customer_name)
+        print(item_string)
+        print(variant_arr)
+        flag, file_path, file_name, requests, name_list, glossy = format_order(design=item_name, colour=colour, finish=finish, options=formatted_options)
+        status = "Received"
+        isCustomOrder = file_name.startswith("Custom")
+        if not flag and not isCustomOrder:
+            status = update_stock(item_name, glossy, name_list, quantity)
+            # pass
+        if not glossy and status == "Printed":
+            status = "Complete"
+        if not isCustomOrder:
+            await addjob(customer_name, file_name, file_path, requests, status, glossy, source)
+            # pass
+
 async def get_orders():
     while True:
         await get_valid_access_token()
@@ -135,6 +198,7 @@ async def get_orders():
                         id
                         name
                         createdAt
+                        fullyPaid
                         channelInformation {{
                             app {{
                                 title
@@ -175,67 +239,38 @@ async def get_orders():
             
             orders = data.get("data", {}).get("orders", {}).get("edges", [])
             
+            batch_ids = []
+            
             if orders:
+                unpaid_orders = u.load_unpaid()
+                    
                 for edge in orders:
                     order = edge["node"]
-                    if order["createdAt"] >= last_polled:
-                        source = order["channelInformation"]["app"]["title"]
-                        if source == "Shuttle - Sync with Etsy":
-                            source = "Etsy"
-                        customer_name = order["shippingAddress"]["name"]
-                        for item_edge in order["lineItems"]["edges"]:
-                            item = item_edge["node"]
-                            item_name = item["title"]
-                            quantity = item.get("quantity")
-                            variants = item.get("variantTitle", "")
-                            variant_arr = []
-                            if variants:
-                                variant_arr = [option.strip() for option in variants.split("/") if option.strip()]
-                            if source == "Etsy":
-                                item_name = ETSY_ALIASES.get(item["title"], "")
-                                if not item_name:
-                                    item_name = SHOPIFY_ALIASES.get(item["title"], item["title"])
-                            else:
-                                item_name = SHOPIFY_ALIASES[item["title"]]
-                            item_string = f"  • {item_name} | Variant: {item['variantTitle']}"
-                            raw_options = item.get("customAttributes", "")
-                            formatted_options = {}
-                            if raw_options:
-                                for cfg in raw_options:
-                                    if cfg["key"] in ("Fish Colour", "Butterfly Colour"):
-                                        formatted_options[cfg["key"]] = "Accessory Colour"
-                                    else:
-                                        formatted_options[cfg["key"]] = cfg["value"]
-                            colour, finish = (None, None)
-                            if item_name == "Knobs & Switches":
-                                finish = variant_arr[0]
-                                colour = variant_arr[1]
-                            else:
-                                if variant_arr:
-                                    if len(variant_arr) == 1:
-                                        if variant_arr[0].startswith("Glossy") or variant_arr[0].startswith("Standard"):
-                                            finish = variant_arr[0]
-                                        else:
-                                            colour = variant_arr[0]
-                                    else:
-                                        if variant_arr[0].startswith("Glossy") or variant_arr[0].startswith("Standard"):
-                                            finish, colour = variant_arr
-                                        else:
-                                            colour, finish = variant_arr
-                                            
-                            print(customer_name)
-                            print(item_string)
-                            flag, file_path, file_name, requests, name_list, glossy = format_order(design=item_name, colour=colour, finish=finish, options=formatted_options)
-                            status = "Received"
-                            isCustomOrder = file_name.startswith("Custom")
-                            if not flag and not isCustomOrder:
-                                status = update_stock(item_name, glossy, name_list, quantity)
-                                # pass
-                            if not glossy and status == "Printed":
-                                status = "Complete"
-                            if not isCustomOrder:
-                                await addjob(customer_name, file_name, file_path, errors, requests, status, glossy, source)
-                                # pass
+                    orderId = order["name"]
+                    batch_ids.append(orderId)
+                
+                for unpaid_id in unpaid_orders:
+                    if unpaid_id not in batch_ids:
+                        u.remove_unpaid(unpaid_id)
+                    
+                
+                for edge in orders:
+                    order = edge["node"]
+                    orderId = order["name"]
+                    fullyPaid = order["fullyPaid"]
+                    
+                    if not fullyPaid and orderId not in unpaid_orders:
+                        u.add_unpaid(orderId)
+                    
+                    elif fullyPaid and orderId in unpaid_orders:
+                        u.remove_unpaid(orderId)
+                        await process_order(order)
+                    
+                    elif fullyPaid and order["createdAt"] >= last_polled:
+                        await process_order(order)
+                    
+                        
+                    
                                 
         except Exception as e:
             print(f"Error fetching orders: {e}")
