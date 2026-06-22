@@ -79,8 +79,9 @@ def update_stock(design_name, glossy, name_list, quantity):
         switch_available = False
         knob_colour = name_list[1]
         parts_list = name_list[0][2:].split(" + ")
+        size = name_list[2]
         knob_name = f"Knob - {knob_colour}"
-        switch_name = f"Switch - {knob_colour}"
+        switch_name = f"Switch - {knob_colour} - {size}"
         if len(parts_list) == 2:
             knob_quantity = int(name_list[0][0])
             knob_available = stock.check_stock(knob_name, quantity*knob_quantity)[0]

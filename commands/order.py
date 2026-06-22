@@ -6,14 +6,16 @@ def check_knobs(order_data):
     requests = order_data["requests"]
     colour = order_data["colour"]
     quantity = order_data["finish"]
-    name_list = [quantity, colour]
     
     lever_sizes = {
-        "3.7mm x 1.3mm": "S",
+        "3.5mm x 1mm": "S",
+        "3.7mm x 1.3mm": "M",
         "5mm x 1.4mm": "L"
     }
     
     size = lever_sizes[order_data["switch_size"]]
+    
+    name_list = [quantity, colour, size]
     
     file_name = f"{quantity}, {colour}, {size}"
     
