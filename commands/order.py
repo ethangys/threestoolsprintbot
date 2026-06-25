@@ -169,7 +169,7 @@ def model_check(order_data):
     if design == "Telecaster":
         return check_telecaster(order_data)
     
-    if design in ("Stratocaster", "Stratocaster Tiger"):
+    if design in ("Stratocaster", "Stratocaster Tiger", "Stratocaster Panda"):
         return check_stratocaster(order_data)
     
     if design in ("Stingray", "Stingray 5", "Stingray Shark", "Stingray Lobster"):
@@ -182,8 +182,8 @@ def format_order(design, colour, finish, options):
     
     order_data = {
         "design": design,
-        "colour": colour,
-        "finish": finish,
+        "colour": colour if colour else "",
+        "finish": finish if finish else "",
         "model": options.get("Model", ""),
         "orientation": options.get("Orientation", ""),
         "pickup_configuration": options.get("Pickup Configuration", ""),
@@ -199,7 +199,7 @@ def format_order(design, colour, finish, options):
      
     print(order_data)
     
-    if finish.startswith("Glossy"):
+    if order_data["finish"].startswith("Glossy"):
         glossy = 1
     else:
         glossy = 0

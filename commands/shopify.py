@@ -10,6 +10,8 @@ import asyncio
 import aiohttp
 import commands.stock as stock
 import unpaid_orders as u
+from commands.shipping import add_shipping
+import traceback
 
 SHOP = "threestools.myshopify.com"
 TOKEN = SHOPIFY_TOKEN
@@ -174,6 +176,7 @@ async def process_order(order):
         print(customer_name)
         print(item_string)
         print(variant_arr)
+        add_shipping(item=item, item_name=item_name, order=order)
         flag, file_path, file_name, requests, name_list, glossy = format_order(design=item_name, colour=colour, finish=finish, options=formatted_options)
         status = "Received"
         isCustomOrder = file_name.startswith("Custom")
@@ -200,6 +203,9 @@ async def get_orders():
                         name
                         createdAt
                         fullyPaid
+                        fulfillable
+                        email
+                        phone
                         channelInformation {{
                             app {{
                                 title
@@ -207,8 +213,13 @@ async def get_orders():
                         }}
                         shippingAddress {{
                             name
-                            firstName
-                            lastName
+                            address1
+                            address2
+                            countryCodeV2
+                            city
+                            province
+                            zip
+                            
                         }}
                         lineItems(first: 10) {{
                             edges {{
@@ -219,6 +230,11 @@ async def get_orders():
                                     customAttributes {{
                                         key
                                         value
+                                    }}
+                                    discountedUnitPriceSet {{
+                                        shopMoney {{
+                                            amount
+                                        }}
                                     }}
                                 }}
                             }}
@@ -248,7 +264,9 @@ async def get_orders():
                 for edge in orders:
                     order = edge["node"]
                     orderId = order["name"]
+    
                     batch_ids.append(orderId)
+                    # await process_order(order)
                 
                 for unpaid_id in unpaid_orders:
                     if unpaid_id not in batch_ids:
@@ -259,15 +277,16 @@ async def get_orders():
                     order = edge["node"]
                     orderId = order["name"]
                     fullyPaid = order["fullyPaid"]
+                    fulfillable = order["fulfillable"]
                     
                     if not fullyPaid and orderId not in unpaid_orders:
                         u.add_unpaid(orderId)
                     
-                    elif fullyPaid and orderId in unpaid_orders:
+                    elif fullyPaid and orderId in unpaid_orders and fulfillable:
                         u.remove_unpaid(orderId)
                         await process_order(order)
                     
-                    elif fullyPaid and order["createdAt"] >= last_polled:
+                    elif fullyPaid and order["createdAt"] >= last_polled and fulfillable:
                         await process_order(order)
                     
                         
@@ -275,5 +294,8 @@ async def get_orders():
                                 
         except Exception as e:
             print(f"Error fetching orders: {e}")
+            print(f"Error type: {type(e).__name__}")
+            print(f"Error message: {repr(e)}")
+            traceback.print_exc()
         state.save_last_polled(poll_time)
         await asyncio.sleep(POLL_INTERVAL)
