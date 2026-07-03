@@ -9,7 +9,6 @@ from commands.jobs import addjob
 import asyncio
 import aiohttp
 import commands.stock as stock
-import unpaid_orders as u
 from commands.shipping import add_shipping
 import traceback
 
@@ -202,8 +201,6 @@ async def get_orders():
                         id
                         name
                         createdAt
-                        fullyPaid
-                        fulfillable
                         email
                         phone
                         channelInformation {{
@@ -257,37 +254,12 @@ async def get_orders():
             
             orders = data.get("data", {}).get("orders", {}).get("edges", [])
             
-            batch_ids = []
-            
             if orders:
-                unpaid_orders = u.load_unpaid()
-                    
-                for edge in orders:
-                    order = edge["node"]
-                    orderId = order["name"]
-    
-                    batch_ids.append(orderId)
-                    # await process_order(order)
-                
-                for unpaid_id in unpaid_orders:
-                    if unpaid_id not in batch_ids:
-                        u.remove_unpaid(unpaid_id)
-                    
                 
                 for edge in orders:
                     order = edge["node"]
-                    orderId = order["name"]
-                    fullyPaid = order["fullyPaid"]
-                    fulfillable = order["fulfillable"]
                     
-                    if not fullyPaid and orderId not in unpaid_orders:
-                        u.add_unpaid(orderId)
-                    
-                    elif fullyPaid and orderId in unpaid_orders and fulfillable:
-                        u.remove_unpaid(orderId)
-                        await process_order(order)
-                    
-                    elif fullyPaid and order["createdAt"] >= last_polled and fulfillable:
+                    if order["createdAt"] >= last_polled:
                         await process_order(order)
                     
                         
