@@ -2,7 +2,7 @@ from commands.utils import gpt_request
 import gspread
 from google.oauth2.service_account import Credentials
 import json
-from order_management import EU_CODES, EU_VAT, NO_VAT, UK_VAT
+from order_management import EU_CODES, EU_VAT, NO_VAT, UK_VAT, SHOPIFY_ALIASES, EU_HS
 
 SERVICE_ACCOUNT_FILE = "service_account.json"
 SCOPES = [
@@ -11,6 +11,7 @@ SCOPES = [
 ]
 
 NAME_COL = 1
+EMAIL_COL = 2
 BLOCK_COL = 3
 STREET_COL = 4
 BUILDING_COL = 5
@@ -25,16 +26,18 @@ ITEM2_START_COL = 30
 QTY_COL_OFFSET = 1
 WEIGHT_COL_OFFSET = 2
 PRICE_COL_OFFSET = 3
+HS_COL_OFFSET = 4
 ORIGIN_COL_OFFSET = 5
+
 
 VAT_COL = 11
 
 ITEM_TYPE_ROW = 17
 CATEGORY_ROW = 18
-ITEM_WEIGHT_ROW = 20
-ITEM_LENGTH_ROW = 21
-ITEM_WIDTH_ROW = 22
-ITEM_HEIGHT_ROW = 23
+PACKAGE_WEIGHT_ROW = 20
+PACKAGE_LENGTH_ROW = 21
+PACKAGE_WIDTH_ROW = 22
+PACKAGE_HEIGHT_ROW = 23
 
 SHIPPING_SERVICE_CODE = "WWPECO"
 SERVICE_CODE_ROW = 46
@@ -80,6 +83,7 @@ def get_product(item, item_name):
 def add_shipping(order, item, item_name):
   
   country_code = order["shippingAddress"]["countryCodeV2"]
+  
   if country_code not in ("SG", "US") and not item["title"].startswith("Custom"):
     
     name = order["shippingAddress"]["name"]
@@ -92,10 +96,12 @@ def add_shipping(order, item, item_name):
     town = order["shippingAddress"]["city"]
     state = order["shippingAddress"]["province"]
     postcode = order["shippingAddress"]["zip"]
-    phone = order["phone"]
+    phone = order["phone"] or order["shippingAddress"]["phone"]
+    email = order["email"]
     item_type, price, quantity = get_product(item, item_name)
     
     vat_number = ""
+    hs_code = ""
     
     if source == "Shuttle - Sync with Etsy":
       if country_code == "NO":
@@ -103,6 +109,7 @@ def add_shipping(order, item, item_name):
       elif country_code == "GB":
         vat_number = UK_VAT
       elif country_code in EU_CODES:
+        hs_code = EU_HS
         vat_number = EU_VAT
       
     
@@ -110,6 +117,7 @@ def add_shipping(order, item, item_name):
     if not cell: # new item
       row_data = [""] * SERVICE_CODE_ROW
       row_data[NAME_COL - 1] = name
+      row_data[EMAIL_COL - 1] = email
       row_data[BLOCK_COL - 1] = block
       row_data[STREET_COL - 1] = street
       row_data[BUILDING_COL - 1] = building
@@ -124,15 +132,16 @@ def add_shipping(order, item, item_name):
       row_data[ITEM1_START_COL + QTY_COL_OFFSET - 1] = quantity
       row_data[ITEM1_START_COL + WEIGHT_COL_OFFSET - 1] = 0.2
       row_data[ITEM1_START_COL + PRICE_COL_OFFSET - 1] = price
+      row_data[ITEM1_START_COL + HS_COL_OFFSET - 1] = hs_code
       row_data[ITEM1_START_COL + ORIGIN_COL_OFFSET - 1] = "SG"
 
       row_data[SERVICE_CODE_ROW - 1] = SHIPPING_SERVICE_CODE
-      row_data[ITEM_TYPE_ROW - 1] = item_type
+      row_data[ITEM_TYPE_ROW - 1] = "P"
       row_data[CATEGORY_ROW - 1] = "M"
-      row_data[ITEM_WEIGHT_ROW - 1] = 0.2
-      row_data[ITEM_LENGTH_ROW - 1] = 30
-      row_data[ITEM_WIDTH_ROW - 1] = 30
-      row_data[ITEM_HEIGHT_ROW - 1] = 2
+      row_data[PACKAGE_WEIGHT_ROW - 1] = 0.2
+      row_data[PACKAGE_LENGTH_ROW - 1] = 30
+      row_data[PACKAGE_WIDTH_ROW - 1] = 30
+      row_data[PACKAGE_HEIGHT_ROW - 1] = 2
       
       sheet.append_row(row_data)
       
@@ -142,8 +151,10 @@ def add_shipping(order, item, item_name):
         
         value = float(sheet.cell(row, ITEM1_START_COL + PRICE_COL_OFFSET).value) + float(price)
         sheet.update_cell(row, ITEM1_START_COL + PRICE_COL_OFFSET, value)
-        qty = int(sheet.cell(row, ITEM1_START_COL + QTY_COL_OFFSET).value)
-        sheet.update_cell(row, ITEM1_START_COL + QTY_COL_OFFSET, qty + 1)
+        
+        if item_name in SHOPIFY_ALIASES.values():
+          qty = int(sheet.cell(row, ITEM1_START_COL + QTY_COL_OFFSET).value)
+          sheet.update_cell(row, ITEM1_START_COL + QTY_COL_OFFSET, qty + 1)
         
       elif item_type == "Plastic Guitar Knobs" and sheet.cell(row, ITEM1_START_COL).value == "Plastic Guitar Pickguard":
         
@@ -153,6 +164,7 @@ def add_shipping(order, item, item_name):
           ITEM2_START_COL + QTY_COL_OFFSET: quantity,
           ITEM2_START_COL + WEIGHT_COL_OFFSET: 0.05,
           ITEM2_START_COL + PRICE_COL_OFFSET: price,
+          ITEM2_START_COL + HS_COL_OFFSET: hs_code,
           ITEM2_START_COL + ORIGIN_COL_OFFSET: "SG"
         }
         
@@ -172,6 +184,7 @@ def add_shipping(order, item, item_name):
           ITEM2_START_COL + QTY_COL_OFFSET: quantity,
           ITEM2_START_COL + WEIGHT_COL_OFFSET: 0.15,
           ITEM2_START_COL + PRICE_COL_OFFSET: price,
+          ITEM2_START_COL + HS_COL_OFFSET: hs_code,
           ITEM2_START_COL + ORIGIN_COL_OFFSET: "SG"
         }
         

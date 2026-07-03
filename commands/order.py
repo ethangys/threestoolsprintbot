@@ -22,7 +22,7 @@ def check_knobs(order_data):
     flag = False
     if requests:
         flag = True
-        file_name += f" (Request: {requests})"
+        file_name += f" (Reference: {requests})"
     
     file_link = ""
     
@@ -50,7 +50,7 @@ def check_telecaster(order_data):
     
     if requests:
         flag = True
-        file_name += f" (Request: {requests})"
+        file_name += f" (Reference: {requests})"
     
     endpoint = "Holes.3mf" if holes else "No Holes.3mf"
     
@@ -81,7 +81,7 @@ def check_stratocaster(order_data):
     
     if requests:
         flag = True
-        file_name += f" (Request: {requests})"
+        file_name += f" (Reference: {requests})"
     
     endpoint = "Holes.3mf" if holes else "No Holes.3mf"
     
@@ -119,7 +119,7 @@ def check_stingray(order_data):
     file_name = " ".join(p for p in name_list if p)
     if requests:
         flag = True
-        file_name += f" (Request: {requests})"
+        file_name += f" (Reference: {requests})"
 
     endpoint = "Holes.3mf" if holes else "No Holes.3mf"
     
@@ -152,7 +152,7 @@ def check_default(order_data):
     file_name = " ".join(p for p in name_list if p)
     
     if requests:
-        return True, "", f"{file_name} (Request: {requests})", name_list
+        return True, "", f"{file_name} (Reference: {requests})", name_list
     
     endpoint = "Holes.3mf" if holes else "No Holes.3mf"
     
@@ -188,7 +188,7 @@ def format_order(design, colour, finish, options):
         "orientation": options.get("Orientation", ""),
         "pickup_configuration": options.get("Pickup Configuration", ""),
         "accessory_colour": options.get("Accessory Colour", ""),
-        "requests": options.get("Personalization", ""),
+        "requests": options.get("Custom Order Reference", ""),
         "switch_size": options.get("Switch Lever Size", "")
     }
     

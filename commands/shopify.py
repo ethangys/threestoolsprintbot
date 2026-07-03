@@ -219,6 +219,7 @@ async def get_orders():
                             city
                             province
                             zip
+                            phone
                             
                         }}
                         lineItems(first: 10) {{
