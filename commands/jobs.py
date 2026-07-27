@@ -320,22 +320,22 @@ async def button_callback(update, context):
         
         status_buttons = [
             [
-                InlineKeyboardButton("🖨 Printing", callback_data=f"printing_{job_id}"),
-                InlineKeyboardButton("📄 Printed", callback_data=f"printed_{job_id}_")
+                InlineKeyboardButton("📥 Received", callback_data=f"received_{job_id}"),
+                InlineKeyboardButton("🖨 Printing", callback_data=f"printing_{job_id}")
             ],
             [
-                InlineKeyboardButton("📦 Dispatched", callback_data=f"dispatched_{job_id}"),
-                InlineKeyboardButton("❌ Remove", callback_data=f"remove_{job_id}")
-            ]    
+                InlineKeyboardButton("📄 Printed", callback_data=f"printed_{job_id}_"),
+                InlineKeyboardButton("📦 Dispatched", callback_data=f"dispatched_{job_id}")
+            ],
+            [
+                InlineKeyboardButton("❌ Remove", callback_data=f"remove_{job_id}"),
+                InlineKeyboardButton("✏️ Edit", callback_data=f"edit_{job_id}")
+            ]
         ]
         
         # Upload button if file does not exist
         if not os.path.exists(get_job(job_id)[2]):
             status_buttons.append([InlineKeyboardButton("⬆️ Upload", callback_data=f"upload_{job_id}")])
-        
-        status_buttons.append([
-            InlineKeyboardButton("✏️ Edit", callback_data=f"edit_{job_id}"),
-        ])
         
         # New inline buttons for individual statuses
         keyboard = InlineKeyboardMarkup(status_buttons)
@@ -383,6 +383,18 @@ async def button_callback(update, context):
         job_id = data.split("_")[1]
         customer_name, file_name, file_path, assigned_user, status, position, requests, glossy, source = get_job(job_id)
         await query.message.reply_text(f"Additional Requests: {requests}")
+        
+    elif data.startswith("received_"):
+        job_id = data.split("_")[1]
+        customer_name, file_name, file_path, assigned_user, status, position, requests, glossy, source = get_job(job_id)
+        update_status(job_id, "Received")
+        
+        
+        await send_all(context.bot, message=f"{customer_name} - {file_name} [{assigned_user}] status set to Received 📥")
+        
+        for text, reply_markup in format_prints(user_name):
+            await query.message.reply_text(text, reply_markup=reply_markup)
+        
         
     elif data.startswith("printing_"):
         job_id = data.split("_")[1]

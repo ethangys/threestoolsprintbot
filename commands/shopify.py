@@ -103,6 +103,14 @@ def update_stock(design_name, glossy, name_list, quantity):
                 if switch_available:
                     stock_available = True
                     stock.update_stock(switch_name, quantity)
+    elif design_name == "Screws":
+        colour = name_list[1]
+        quantity = name_list[2]
+        screw_code = f"Screws - {colour}"
+        stock_available = stock.check_stock(screw_code, quantity)[0]
+        if stock_available:
+            stock.update_stock(screw_code, quantity)
+        
     else:
         item_code = stock.generate_code(name_list)
         stock.update_frequency(item_code)
@@ -143,7 +151,7 @@ async def process_order(order):
             if not item_name:
                 item_name = SHOPIFY_ALIASES.get(item["title"], item["title"])
         else:
-            item_name = SHOPIFY_ALIASES[item["title"]]
+            item_name = SHOPIFY_ALIASES.get(item["title"], item["title"])
         item_string = f"  • {item_name} | Variant: {item['variantTitle']}"
         raw_options = item.get("customAttributes", "")
         formatted_options = {}
@@ -157,13 +165,18 @@ async def process_order(order):
         if item_name == "Knobs & Switches":
             finish = variant_arr[0]
             colour = variant_arr[1]
+        elif item_name == "Screws":
+            colour = variant_arr[0]
+            finish = variant_arr[1]
         else:
             if variant_arr:
                 if len(variant_arr) == 1:
                     if variant_arr[0].startswith("Glossy") or variant_arr[0].startswith("Standard"):
                         finish = variant_arr[0]
+                        colour = ""
                     else:
                         colour = variant_arr[0]
+                        finish = ""
                 else:
                     if variant_arr[0].startswith("Glossy") or variant_arr[0].startswith("Standard"):
                         finish = variant_arr[0]
@@ -178,13 +191,17 @@ async def process_order(order):
         add_shipping(item=item, item_name=item_name, order=order)
         flag, file_path, file_name, requests, name_list, glossy = format_order(design=item_name, colour=colour, finish=finish, options=formatted_options)
         status = "Received"
-        isCustomOrder = file_name.startswith("Custom")
-        if not flag and not isCustomOrder:
+        isCustom = (item_name not in SHOPIFY_ALIASES.values())
+        if isCustom:
+            file_path = ""
+            glossy = any(x == "Glossy" for x in name_list)
+        isAddon = file_name.startswith("Custom")
+        if not flag and not isAddon and item_name != "Screws" and not isCustom:
             status = update_stock(item_name, glossy, name_list, quantity)
             # pass
-        if not glossy and status == "Printed":
+        if (not glossy and status == "Printed") or item_name == "Screws":
             status = "Complete"
-        if not isCustomOrder:
+        if not isAddon:
             await addjob(customer_name, file_name, file_path, requests, status, glossy, source)
             # pass
 
@@ -258,9 +275,11 @@ async def get_orders():
                 
                 for edge in orders:
                     order = edge["node"]
+                    # await process_order(order)
                     
                     if order["createdAt"] >= last_polled:
                         await process_order(order)
+                        pass
                     
                         
                     

@@ -1,11 +1,38 @@
 from config import PICKGUARD_STORAGE_DIR
+from order_management import SCREW_COUNT
 import os
+
+def check_accessories(order_data):
+    
+    design = order_data["design"]
+    colour = order_data["colour"]
+    finish = order_data["finish"]
+    
+    name_list = [design, colour, finish]
+    
+    file_name = " ".join(p for p in name_list if p)
+    
+    file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour)
+    
+    return False, file_link, file_name, "", name_list
+
+def check_screws(order_data):
+    colour = order_data["colour"]
+    model = order_data["finish"]
+    quantity = SCREW_COUNT.get(model, "")
+    
+    name_list = ["Screws", colour, quantity]
+    
+    file_name = f"{colour} Screws x{quantity}"
+    
+    return False, "", file_name, "", name_list
 
 def check_knobs(order_data):
     
     requests = order_data["requests"]
     colour = order_data["colour"]
     quantity = order_data["finish"]
+    switch_dimension = order_data["switch_size"]
     
     lever_sizes = {
         "3.5mm x 1mm": "S",
@@ -13,11 +40,13 @@ def check_knobs(order_data):
         "5mm x 1.4mm": "L"
     }
     
-    size = lever_sizes[order_data["switch_size"]]
+    size = lever_sizes.get(switch_dimension, "")
     
     name_list = [quantity, colour, size]
     
-    file_name = f"{quantity}, {colour}, {size}"
+    file_name = f"{quantity}, {colour}"
+    if size:
+        file_name += f", {size}"
     
     flag = False
     if requests:
@@ -142,6 +171,8 @@ def check_default(order_data):
 
     holes = (model != "No Screw Holes")
     
+    flag = False
+    
     finish_list = finish.split(" ")
     
     if len(finish_list) > 1 and finish_list[-1] != "Ear)":
@@ -152,13 +183,15 @@ def check_default(order_data):
     file_name = " ".join(p for p in name_list if p)
     
     if requests:
-        return True, "", f"{file_name} (Reference: {requests})", name_list
+        flag = True
+        file_name += f" (Reference: {requests})"
     
     endpoint = "Holes.3mf" if holes else "No Holes.3mf"
     
     file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour, orientation, endpoint)
     
-    return False, file_link, file_name, requests, name_list
+    return flag, file_link, file_name, requests, name_list
+
     
 def model_check(order_data):
     design = order_data["design"]
@@ -166,7 +199,7 @@ def model_check(order_data):
     if design == "Knobs & Switches":
         return check_knobs(order_data)
     
-    if design == "Telecaster":
+    if design in ("Telecaster", "Bunny Telecaster"):
         return check_telecaster(order_data)
     
     if design in ("Stratocaster", "Stratocaster Tiger", "Stratocaster Panda"):
@@ -174,6 +207,12 @@ def model_check(order_data):
     
     if design in ("Stingray", "Stingray 5", "Stingray Shark", "Stingray Lobster"):
         return check_stingray(order_data)
+    
+    if design == "Fish":
+        return check_accessories(order_data)
+    
+    if design == "Screws":
+        return check_screws(order_data)
     
     return check_default(order_data)
 
