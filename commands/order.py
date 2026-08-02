@@ -158,7 +158,37 @@ def check_stingray(order_data):
         file_link = ""
     
     return flag, file_link, file_name, requests, name_list
+
+def check_jazzmaster(order_data):
     
+    design = order_data["design"]
+    colour = order_data["colour"]
+    finish = order_data["finish"]
+    model = order_data["model"]
+    orientation = order_data["orientation"]
+    requests = order_data["requests"]
+    control_plate_colour = order_data["control_plate_colour"]
+
+    holes = (model != "No Screw Holes")
+    
+    flag = False
+    
+    control_plate = f"{control_plate_colour} Control Plate"
+
+    name_list = [design, colour.title(), control_plate, finish.title(), orientation, f"{'With Holes' if holes else 'Without Holes'}"]
+    
+    file_name = " ".join(p for p in name_list if p)
+    
+    if requests:
+        flag = True
+        file_name += f" (Reference: {requests})"
+    
+    endpoint = "Holes.3mf" if holes else "No Holes.3mf"
+    
+    file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour, control_plate, orientation, endpoint)
+    
+    return flag, file_link, file_name, requests, name_list
+
 def check_default(order_data):
     
     design = order_data["design"]
@@ -214,6 +244,9 @@ def model_check(order_data):
     if design == "Screws":
         return check_screws(order_data)
     
+    if design == "Squier Jazzmaster":
+        return check_jazzmaster(order_data)
+    
     return check_default(order_data)
 
 
@@ -228,7 +261,8 @@ def format_order(design, colour, finish, options):
         "pickup_configuration": options.get("Pickup Configuration", ""),
         "accessory_colour": options.get("Accessory Colour", ""),
         "requests": options.get("Custom Order Reference", ""),
-        "switch_size": options.get("Switch Lever Size", "")
+        "switch_size": options.get("Switch Lever Size", ""),
+        "control_plate_colour": options.get("Control Plate Colour", "")
     }
     
     if order_data["orientation"] == "Right Handed":

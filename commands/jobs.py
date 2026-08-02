@@ -145,7 +145,7 @@ def format_jobs():
             text_source = ""
             if source == "Etsy":
                 text_source = "🔵 "
-            elif source == "Online Store":
+            elif source == "Shopify":
                 text_source = "🟢 "
             text += f"{i}. {text_source}{customer_name} - {file_name} [{assigned_user}]\n"
             buttons.append([

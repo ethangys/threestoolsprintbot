@@ -16,7 +16,7 @@ SHOP = "threestools.myshopify.com"
 TOKEN = SHOPIFY_TOKEN
 CLIENT_ID = SHOPIFY_CLIENT_ID
 POLL_INTERVAL = 600
-ORDERS_FETCH_LIMIT = 50
+ORDERS_FETCH_LIMIT = 10
 
 ACCESS_TOKEN = ""
 TOKEN_EXPIRY = datetime.now(timezone.utc)
@@ -134,9 +134,11 @@ def update_stock(design_name, glossy, name_list, quantity):
     return status
 
 async def process_order(order):
-    source = order["channelInformation"]["app"]["title"]
+    source = (order.get("channelInformation") or {}).get("app", {}).get("title", "")
     if source == "Shuttle - Sync with Etsy":
         source = "Etsy"
+    else:
+        source = "Shopify"
     customer_name = order["shippingAddress"]["name"]
     for item_edge in order["lineItems"]["edges"]:
         item = item_edge["node"]
@@ -194,7 +196,7 @@ async def process_order(order):
         isCustom = (item_name not in SHOPIFY_ALIASES.values())
         if isCustom:
             file_path = ""
-            glossy = any(x == "Glossy" for x in name_list)
+            glossy = any(x == "Glossy" for x in item_name)
         isAddon = file_name.startswith("Custom")
         if not flag and not isAddon and item_name != "Screws" and not isCustom:
             status = update_stock(item_name, glossy, name_list, quantity)
@@ -202,7 +204,8 @@ async def process_order(order):
         if (not glossy and status == "Printed") or item_name == "Screws":
             status = "Complete"
         if not isAddon:
-            await addjob(customer_name, file_name, file_path, requests, status, glossy, source)
+            for i in range(quantity):
+                await addjob(customer_name, file_name, file_path, requests, status, glossy, source)
             # pass
 
 async def get_orders():
@@ -279,7 +282,7 @@ async def get_orders():
                     
                     if order["createdAt"] >= last_polled:
                         await process_order(order)
-                        pass
+                        # pass
                     
                         
                     
