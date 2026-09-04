@@ -79,7 +79,7 @@ def parse_knobs(item):
   name = [option.strip() for option in variants.split("/") if option.strip()][0]
   name_list = name.split(" ")
   quantity = int(name_list[0])
-  if name_list[-1] in ("Switch", "Cover"):
+  if name_list[-1] in ("Switch", "Cover") and name_list[1] in ("Knob", "Knobs"):
     quantity += 1
   return int(quantity)
   

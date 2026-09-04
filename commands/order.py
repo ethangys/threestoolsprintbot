@@ -57,38 +57,6 @@ def check_knobs(order_data):
     
     return flag, file_link, file_name, requests, name_list
 
-def check_telecaster(order_data):
-    
-    design = order_data["design"]
-    model = order_data["model"]
-    colour = order_data["colour"]
-    finish = order_data["finish"]
-    orientation = order_data["orientation"]
-    requests = order_data["requests"]
-    
-    holes = (model != "No Screw Holes")
-    
-    if not holes:
-        model = ""
-    
-    name_list = [design, model, colour, finish, orientation, f"{'With Holes' if holes else 'Without Holes'}"]
-
-    file_name = " ".join(p for p in name_list if p)
-    
-    flag = False
-    
-    if requests:
-        flag = True
-        file_name += f" (Reference: {requests})"
-    
-    endpoint = "Holes.3mf" if holes else "No Holes.3mf"
-    
-    if not flag:
-        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, model, colour, orientation, endpoint)
-    else:
-        file_link = ""
-    
-    return flag, file_link, file_name, requests, name_list
 
 def check_stratocaster(order_data):
     
@@ -141,7 +109,7 @@ def check_stingray(order_data):
     finish_list = finish.split(" ")
     
     if len(finish_list) > 1 and finish_list[-1] != "Ear)":
-        finish = f"{finish_list[0]} + {" ".join(accessory_colour.split(" ")[:-1])} {finish_list[-1]}"
+        finish = f"{finish_list[0]} + {accessory_colour} {finish_list[-1]}"
     
     name_list = [design, model, colour.title(), finish.title(), orientation, f"{'With Holes' if holes else 'Without Holes'}"]
     
@@ -189,6 +157,39 @@ def check_jazzmaster(order_data):
     
     return flag, file_link, file_name, requests, name_list
 
+
+def check_different_model(order_data):
+    
+    design = order_data["design"]
+    model = order_data["model"]
+    colour = order_data["colour"]
+    finish = order_data["finish"]
+    orientation = order_data["orientation"]
+    requests = order_data["requests"]
+    
+    flag = False
+    
+    holes = (model != "No Screw Holes")
+    
+    if not holes:
+        model = ""
+    
+    name_list = [design, model, colour.title(), finish.title(), orientation, f"{'With Holes' if holes else 'Without Holes'}"]
+    
+    file_name = " ".join(p for p in name_list if p)
+    if requests:
+        flag = True
+        file_name += f" (Reference: {requests})"
+
+    endpoint = "Holes.3mf" if holes else "No Holes.3mf"
+    
+    if not flag:
+        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, model, colour, orientation, endpoint)
+    else:
+        file_link = ""
+    
+    return flag, file_link, file_name, requests, name_list
+
 def check_default(order_data):
     
     design = order_data["design"]
@@ -204,11 +205,15 @@ def check_default(order_data):
     flag = False
     
     finish_list = finish.split(" ")
+    if model:
+        end = f"{'With Holes' if holes else 'Without Holes'}"
+    else:
+        end = ""
     
     if len(finish_list) > 1 and finish_list[-1] != "Ear)":
         finish = f"{finish_list[0]} + {f'{accessory_colour} ' if accessory_colour else ''}{finish_list[-1]}"
 
-    name_list = [design, colour.title(), finish.title(), orientation, f"{'With Holes' if holes else 'Without Holes'}"]
+    name_list = [design, colour.title(), finish.title(), orientation, end]
     
     file_name = " ".join(p for p in name_list if p)
     
@@ -229,9 +234,6 @@ def model_check(order_data):
     if design == "Knobs & Switches":
         return check_knobs(order_data)
     
-    if design in ("Telecaster", "Bunny Telecaster"):
-        return check_telecaster(order_data)
-    
     if design in ("Stratocaster", "Stratocaster Tiger", "Stratocaster Panda"):
         return check_stratocaster(order_data)
     
@@ -246,6 +248,9 @@ def model_check(order_data):
     
     if design == "Squier Jazzmaster":
         return check_jazzmaster(order_data)
+    
+    if design in ("Telecaster", "Bunny Telecaster", "Corgi Telecaster", "Strandberg Boden", "Lakland", "Squier Jazz Bass"):
+        return check_different_model(order_data)
     
     return check_default(order_data)
 
@@ -278,5 +283,4 @@ def format_order(design, colour, finish, options):
         glossy = 0
         
     flag, file_path, file_name, requests, name_list = model_check(order_data)
-    print(file_name)
     return flag, file_path, file_name, requests, name_list, glossy

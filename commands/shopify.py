@@ -196,7 +196,7 @@ async def process_order(order):
         isCustom = (item_name not in SHOPIFY_ALIASES.values())
         if isCustom:
             file_path = ""
-            glossy = any(x == "Glossy" for x in item_name)
+            glossy = any(x == "Glossy" for x in item_name.split(" "))
         isAddon = file_name.startswith("Custom")
         if not flag and not isAddon and item_name != "Screws" and not isCustom:
             status = update_stock(item_name, glossy, name_list, quantity)
@@ -206,7 +206,7 @@ async def process_order(order):
         if not isAddon:
             for i in range(quantity):
                 await addjob(customer_name, file_name, file_path, requests, status, glossy, source)
-            # pass
+                # pass
 
 async def get_orders():
     while True:

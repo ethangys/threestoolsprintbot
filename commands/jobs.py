@@ -330,12 +330,11 @@ async def button_callback(update, context):
             [
                 InlineKeyboardButton("❌ Remove", callback_data=f"remove_{job_id}"),
                 InlineKeyboardButton("✏️ Edit", callback_data=f"edit_{job_id}")
+            ],
+            [
+                InlineKeyboardButton("⬆️ Upload", callback_data=f"upload_{job_id}")
             ]
         ]
-        
-        # Upload button if file does not exist
-        if not os.path.exists(get_job(job_id)[2]):
-            status_buttons.append([InlineKeyboardButton("⬆️ Upload", callback_data=f"upload_{job_id}")])
         
         # New inline buttons for individual statuses
         keyboard = InlineKeyboardMarkup(status_buttons)
