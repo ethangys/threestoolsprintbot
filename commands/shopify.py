@@ -191,14 +191,14 @@ async def process_order(order):
         print(item_string)
         print(variant_arr)
         add_shipping(item=item, item_name=item_name, order=order)
-        flag, file_path, file_name, requests, name_list, glossy = format_order(design=item_name, colour=colour, finish=finish, options=formatted_options)
+        file_path, file_name, requests, name_list, glossy = format_order(design=item_name, colour=colour, finish=finish, options=formatted_options)
         status = "Received"
         isCustom = (item_name not in SHOPIFY_ALIASES.values())
         if isCustom:
             file_path = ""
             glossy = any(x == "Glossy" for x in item_name.split(" "))
         isAddon = file_name.startswith("Custom")
-        if not flag and not isAddon and item_name != "Screws" and not isCustom:
+        if not requests and not isAddon and item_name != "Screws" and not isCustom:
             status = update_stock(item_name, glossy, name_list, quantity)
             # pass
         if (not glossy and status == "Printed") or item_name == "Screws":
