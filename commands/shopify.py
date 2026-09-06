@@ -192,6 +192,7 @@ async def process_order(order):
         print(variant_arr)
         add_shipping(item=item, item_name=item_name, order=order)
         file_path, file_name, requests, name_list, glossy = format_order(design=item_name, colour=colour, finish=finish, options=formatted_options)
+        print(file_name, file_path)
         status = "Received"
         isCustom = (item_name not in SHOPIFY_ALIASES.values())
         if isCustom:

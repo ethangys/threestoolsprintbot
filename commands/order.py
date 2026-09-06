@@ -161,7 +161,7 @@ def check_different_model(order_data):
         
     if design in NO_HOLES:
         end = f"{orientation}.3mf"
-        name_list = [design, colour.title(), finish.title(), end]
+        name_list = [design, colour.title(), finish.title(), orientation]
         file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour, end)
     else:
         end = f"{'With Holes' if holes else 'Without Holes'}"
@@ -196,7 +196,7 @@ def check_default(order_data):
     
     if design in NO_HOLES:
         end = f"{orientation}.3mf"
-        name_list = [design, colour.title(), finish.title(), end]
+        name_list = [design, colour.title(), finish.title(), orientation]
         file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour, end)
     else:
         end = f"{'With Holes' if holes else 'Without Holes'}"
