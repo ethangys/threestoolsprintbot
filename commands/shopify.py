@@ -103,6 +103,13 @@ def update_stock(design_name, glossy, name_list, quantity):
                 if switch_available:
                     stock_available = True
                     stock.update_stock(switch_name, quantity)
+    elif design_name == "Toppers":
+        quantity = int(name_list[0][0])
+        colour = name_list[1]
+        topper_code = f"Toppers - {colour}"
+        stock_available = stock.check_stock(topper_code, quantity)[0]
+        if stock_available:
+            stock.update_stock(topper_code, quantity)
     elif design_name == "Screws":
         colour = name_list[1]
         quantity = name_list[2]
@@ -164,7 +171,7 @@ async def process_order(order):
                 else:
                     formatted_options[cfg["key"]] = cfg["value"]
         colour, finish = (None, None)
-        if item_name == "Knobs & Switches":
+        if item_name in ("Knobs & Switches", "Toppers"):
             finish = variant_arr[0]
             colour = variant_arr[1]
         elif item_name == "Screws":
@@ -190,7 +197,7 @@ async def process_order(order):
         print(customer_name)
         print(item_string)
         print(variant_arr)
-        add_shipping(item=item, item_name=item_name, order=order)
+        # add_shipping(item=item, item_name=item_name, order=order)
         file_path, file_name, requests, name_list, glossy = format_order(design=item_name, colour=colour, finish=finish, options=formatted_options)
         print(file_name, file_path)
         status = "Received"
@@ -200,14 +207,14 @@ async def process_order(order):
             glossy = any(x == "Glossy" for x in item_name.split(" "))
         isAddon = file_name.startswith("Custom")
         if not requests and not isAddon and item_name != "Screws" and not isCustom:
-            status = update_stock(item_name, glossy, name_list, quantity)
-            # pass
+            # status = update_stock(item_name, glossy, name_list, quantity)
+            pass
         if (not glossy and status == "Printed") or item_name == "Screws":
             status = "Complete"
         if not isAddon:
             for i in range(quantity):
-                await addjob(customer_name, file_name, file_path, requests, status, glossy, source)
-                # pass
+                # await addjob(customer_name, file_name, file_path, requests, status, glossy, source)
+                pass
 
 async def get_orders():
     while True:
@@ -279,11 +286,11 @@ async def get_orders():
                 
                 for edge in orders:
                     order = edge["node"]
-                    # await process_order(order)
+                    await process_order(order)
                     
                     if order["createdAt"] >= last_polled:
-                        await process_order(order)
-                        # pass
+                        # await process_order(order)
+                        pass
                     
                         
                     
@@ -293,5 +300,5 @@ async def get_orders():
             print(f"Error type: {type(e).__name__}")
             print(f"Error message: {repr(e)}")
             traceback.print_exc()
-        state.save_last_polled(poll_time)
+        # state.save_last_polled(poll_time)
         await asyncio.sleep(POLL_INTERVAL)

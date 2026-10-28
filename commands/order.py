@@ -1,5 +1,5 @@
 from config import PICKGUARD_STORAGE_DIR
-from order_management import SCREW_COUNT, NO_HOLES
+from order_management import SCREW_COUNT, NO_HOLES, DIFFERENT_MODELS
 import os
 
 def check_accessories(order_data):
@@ -25,10 +25,11 @@ def check_screws(order_data):
     
     file_name = f"{colour} Screws x{quantity}"
     
-    return False, "", file_name, "", name_list
+    return "", file_name, "", name_list
 
-def check_knobs(order_data):
+def check_knobs_toppers(order_data):
     
+    design = order_data["design"]
     requests = order_data["requests"]
     colour = order_data["colour"]
     quantity = order_data["finish"]
@@ -42,7 +43,10 @@ def check_knobs(order_data):
     
     size = lever_sizes.get(switch_dimension, "")
     
-    name_list = [quantity, colour, size]
+    if design == "Knobs & Switches":
+        name_list = [quantity, colour, size]
+    else:
+        name_list = [quantity, colour]
     
     file_name = f"{quantity}, {colour}"
     if size:
@@ -72,47 +76,12 @@ def check_stratocaster(order_data):
     
     file_name = " ".join(p for p in name_list if p)
     
-    endpoint = "Holes.3mf" if holes else "No Holes.3mf"
-    
     if requests:
         file_name += f" (Reference: {requests})"
         file_link = ""
     else:
-        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, pickup_configuration, colour, orientation, endpoint)
+        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, pickup_configuration, colour.title(), orientation, f"{'Holes' if holes else 'No Holes'}.3mf")
 
-    
-    return file_link, file_name, requests, name_list
-
-def check_stingray(order_data):
-    
-    design = order_data["design"]
-    model = order_data["model"]
-    colour = order_data["colour"]
-    finish = order_data["finish"]
-    orientation = order_data["orientation"]
-    requests = order_data["requests"]
-    accessory_colour = order_data["accessory_colour"]
-    
-    holes = (model != "No Screw Holes")
-    
-    if not holes:
-        model = ""
-        
-    finish_list = finish.split(" ")
-    
-    if len(finish_list) > 1 and finish_list[-1] != "Ear)":
-        finish = f"{finish_list[0]} + {accessory_colour} {finish_list[-1]}"
-    
-    name_list = [design, model, colour.title(), finish.title(), orientation, f"{'With Holes' if holes else 'Without Holes'}"]
-    
-    endpoint = "Holes.3mf" if holes else "No Holes.3mf"
-    
-    file_name = " ".join(p for p in name_list if p)
-    if requests:
-        file_name += f" (Reference: {requests})"
-        file_link = ""
-    else:
-        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, model, colour, orientation, endpoint)
     
     return file_link, file_name, requests, name_list
 
@@ -131,16 +100,13 @@ def check_jazzmaster(order_data):
     control_plate = f"{control_plate_colour} Control Plate"
 
     name_list = [design, colour.title(), control_plate, finish.title(), orientation, f"{'With Holes' if holes else 'Without Holes'}"]
-    
-    endpoint = "Holes.3mf" if holes else "No Holes.3mf"
+    file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour.title(), control_plate, orientation, f"{'Holes' if holes else 'No Holes'}.3mf")
     
     file_name = " ".join(p for p in name_list if p)
     
     if requests:
         file_name += f" (Reference: {requests})"
         file_link = ""
-    else:
-        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour, control_plate, orientation, endpoint)
     
     return file_link, file_name, requests, name_list
 
@@ -153,21 +119,21 @@ def check_different_model(order_data):
     finish = order_data["finish"]
     orientation = order_data["orientation"]
     requests = order_data["requests"]
+    accessory_colour = order_data["accessory_colour"]
     
     holes = (model != "No Screw Holes")
     
-    if not holes:
-        model = ""
+    finish_list = finish.split(" ")
         
-    if design in NO_HOLES:
-        end = f"{orientation}.3mf"
-        name_list = [design, colour.title(), finish.title(), orientation]
-        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour, end)
+    if len(finish_list) > 1 and finish_list[-1].title() != "Ear)":
+        finish = f"{finish_list[0]} + {f'{accessory_colour} ' if accessory_colour else ''}{finish_list[-1]}"
+    
+    if design in NO_HOLES or holes:
+        name_list = [design, model, colour.title(), finish.title(), orientation]
+        file_link = os.path.join(*(p for p in [PICKGUARD_STORAGE_DIR, design, model, colour.title(), f"{orientation}.3mf"] if p))
     else:
-        end = f"{'With Holes' if holes else 'Without Holes'}"
-        endpoint = "Holes.3mf" if holes else "No Holes.3mf"
-        name_list = [design, colour.title(), finish.title(), orientation, end]
-        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour, orientation, endpoint)
+        name_list = [design, colour.title(), finish.title(), orientation, "Without Holes"]
+        file_link = os.path.join(*(p for p in [PICKGUARD_STORAGE_DIR, design, "No Holes", colour.title(), f"{orientation}.3mf"] if p))
     
     file_name = " ".join(p for p in name_list if p)
     
@@ -191,19 +157,18 @@ def check_default(order_data):
     
     finish_list = finish.split(" ")
     
-    if len(finish_list) > 1 and finish_list[-1] != "Ear)":
+    if len(finish_list) > 1 and finish_list[-1].title() != "Ear)":
         finish = f"{finish_list[0]} + {f'{accessory_colour} ' if accessory_colour else ''}{finish_list[-1]}"
     
     if design in NO_HOLES:
-        end = f"{orientation}.3mf"
         name_list = [design, colour.title(), finish.title(), orientation]
-        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour, end)
+        file_link = os.path.join(*(p for p in [PICKGUARD_STORAGE_DIR, design, colour.title(), f"{orientation}.3mf"] if p))
     else:
-        end = f"{'With Holes' if holes else 'Without Holes'}"
-        endpoint = "Holes.3mf" if holes else "No Holes.3mf"
-        name_list = [design, colour.title(), finish.title(), orientation, end]
-        file_link = os.path.join(PICKGUARD_STORAGE_DIR, design, colour, orientation, endpoint)
+        name_list = [design, colour.title(), finish.title(), orientation, f"{'With Holes' if holes else 'Without Holes'}"]
+        file_link = os.path.join(*(p for p in [PICKGUARD_STORAGE_DIR, design, colour.title(), orientation, f"{'Holes' if holes else 'No Holes'}.3mf"] if p))
     
+    if model == "":
+        name_list = [design]
     
     file_name = " ".join(p for p in name_list if p)
     
@@ -217,14 +182,11 @@ def check_default(order_data):
 def model_check(order_data):
     design = order_data["design"]
     
-    if design == "Knobs & Switches":
-        return check_knobs(order_data)
+    if design in ("Knobs & Switches", "Toppers"):
+        return check_knobs_toppers(order_data)
     
     if design in ("Stratocaster", "Stratocaster Tiger", "Stratocaster Panda"):
         return check_stratocaster(order_data)
-    
-    if design in ("Stingray", "Stingray 5", "Stingray Shark", "Stingray Lobster"):
-        return check_stingray(order_data)
     
     if design == "Fish":
         return check_accessories(order_data)
@@ -235,7 +197,7 @@ def model_check(order_data):
     if design == "Squier Jazzmaster":
         return check_jazzmaster(order_data)
     
-    if design in ("Telecaster", "Bunny Telecaster", "Corgi Telecaster", "Strandberg Boden", "Lakland", "Squier Jazz Bass"):
+    if design in DIFFERENT_MODELS:
         return check_different_model(order_data)
     
     return check_default(order_data)

@@ -16,7 +16,7 @@ def get_queue_data():
         queue[status] = jobs
     return queue
 
-def insert_job(file_name, position=None, assigned_user="Unassigned", status="Received", file_path="", customer_name="Manual", requests="", glossy=1, source=""):
+def insert_job(file_name, position=None, assigned_user="Ethan", status="Received", file_path="", customer_name="Manual", requests="", glossy=1, source=""):
     cur = get_cursor()
     # Get position value
     jobs = cur.execute("SELECT position FROM jobs ORDER BY position ASC").fetchall()
