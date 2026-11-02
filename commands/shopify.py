@@ -197,7 +197,7 @@ async def process_order(order):
         print(customer_name)
         print(item_string)
         print(variant_arr)
-        # add_shipping(item=item, item_name=item_name, order=order)
+        add_shipping(item=item, item_name=item_name, order=order)
         file_path, file_name, requests, name_list, glossy = format_order(design=item_name, colour=colour, finish=finish, options=formatted_options)
         print(file_name, file_path)
         status = "Received"
@@ -205,16 +205,16 @@ async def process_order(order):
         if isCustom:
             file_path = ""
             glossy = any(x == "Glossy" for x in item_name.split(" "))
-        isAddon = file_name.startswith("Custom")
+        isAddon = file_name.startswith("Addon")
         if not requests and not isAddon and item_name != "Screws" and not isCustom:
-            # status = update_stock(item_name, glossy, name_list, quantity)
-            pass
+            status = update_stock(item_name, glossy, name_list, quantity)
+            # pass
         if (not glossy and status == "Printed") or item_name == "Screws":
             status = "Complete"
         if not isAddon:
             for i in range(quantity):
-                # await addjob(customer_name, file_name, file_path, requests, status, glossy, source)
-                pass
+                await addjob(customer_name, file_name, 0, file_path, requests, status, glossy, source)
+                # pass
 
 async def get_orders():
     while True:
@@ -231,6 +231,7 @@ async def get_orders():
                         createdAt
                         email
                         phone
+                        closed
                         channelInformation {{
                             app {{
                                 title
@@ -286,11 +287,12 @@ async def get_orders():
                 
                 for edge in orders:
                     order = edge["node"]
-                    await process_order(order)
-                    
-                    if order["createdAt"] >= last_polled:
+                    if not order["closed"]:
                         # await process_order(order)
-                        pass
+                        
+                        if order["createdAt"] >= last_polled:
+                            await process_order(order)
+                            # pass
                     
                         
                     
@@ -300,5 +302,5 @@ async def get_orders():
             print(f"Error type: {type(e).__name__}")
             print(f"Error message: {repr(e)}")
             traceback.print_exc()
-        # state.save_last_polled(poll_time)
+        state.save_last_polled(poll_time)
         await asyncio.sleep(POLL_INTERVAL)

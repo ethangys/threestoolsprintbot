@@ -34,7 +34,8 @@ def insert_job(file_name, position=None, assigned_user="Ethan", status="Received
         else:
             pos = (jobs[position-1][0] + jobs[position][0])/2
     else:
-        pos = jobs[-1][0] + 1
+        pos = jobs[-1][0] + 1 if jobs else 1.0
+        
     cur.execute("INSERT INTO jobs (customer_name, file_name, file_path, assigned_user, status, position, requests, glossy, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)", (customer_name, file_name, file_path, assigned_user, status, pos, requests, glossy, source))
     conn.commit()
 

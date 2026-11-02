@@ -462,8 +462,8 @@ async def button_callback(update, context):
         
         await send_all(context.bot, f"{customer_name} - {file_name} has been claimed by {user_name}")
 
-async def addjob(customer_name, file_name, file_path, requests, status, glossy, source):
-    insert_job(file_name=file_name, position=0, customer_name=customer_name, file_path=file_path, requests=requests, status=status, glossy=glossy, source=source)
+async def addjob(customer_name, file_name, position, file_path, requests, status, glossy, source):
+    insert_job(file_name=file_name, position=position, customer_name=customer_name, file_path=file_path, requests=requests, status=status, glossy=glossy, source=source)
     if status == "Received":
         await send_all(Bot(token=BOT_TOKEN), f"New Job Added: {customer_name} - {file_name} ✅")
     else:
